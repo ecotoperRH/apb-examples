@@ -1,0 +1,44 @@
+[
+  {
+    "name": "etherpad-apb",
+    "path": "etherpad-apb/",
+    "description": "Deploys Etherpad Lite collaborative note-taking web application backed by a MariaDB database on OpenShift. Provisions DeploymentConfigs, Services, a Route, and PVCs with bind credential support.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "hastebin-apb",
+    "path": "hastebin-apb/",
+    "description": "Deploys Hastebin pastebin-style web application with a Memcached backend on OpenShift. Uses a dual-container DeploymentConfig with ConfigMap-based configuration injection.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "jenkins-apb",
+    "path": "jenkins-apb/",
+    "description": "Deploys Jenkins CI/CD server on OpenShift with optional persistence, OpenShift OAuth integration, optional S2I custom builds, and configurable memory limits. Creates Services, a TLS-terminated Route, a ServiceAccount, and a RoleBinding.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "mediawiki123-apb",
+    "path": "mediawiki123-apb/",
+    "description": "Deploys MediaWiki 1.23 on OpenShift using a route-first provisioning pattern to capture the hostname for the site server environment variable. Provisions a Route, PVC, DeploymentConfig, and Service.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "nginx-oss-apb",
+    "path": "nginx-oss-apb/",
+    "description": "Deploys an Nginx Open Source reverse proxy/load balancer on OpenShift with optional upstream load balancing and configurable algorithms. Nginx configuration is injected via a Jinja2-templated ConfigMap.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-apb",
+    "path": "pyzip-demo-apb/",
+    "description": "Deploys a minimal Python ZIP code demo web application on OpenShift with no parameters, persistent storage, or bind support. Creates only a Route, Service, and DeploymentConfig.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-db-apb",
+    "path": "pyzip-demo-db-apb/",
+    "description": "Deploys a PostGIS-enabled PostgreSQL database on OpenShift to back the pyzip-demo application, with database seeding from bundled geospatial SQL files. Bindable \u2014 exposes five connection credentials via service binding.",
+    "technology": "Ansible"
+  }
+]
