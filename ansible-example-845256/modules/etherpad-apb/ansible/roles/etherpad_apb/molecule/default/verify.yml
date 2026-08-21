@@ -1,0 +1,373 @@
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Stat manifest root directory
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests
+    register: manifests_dir
+  - name: Assert manifest root directory exists
+    ansible.builtin.assert:
+      that:
+      - manifests_dir.stat.exists
+      - manifests_dir.stat.isdir
+      fail_msg: Manifest root directory /tmp/molecule_test/manifests was not created
+      success_msg: Manifest root directory exists
+  - name: Stat mariadb-storage PVC manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/pvcs/mariadb-storage.yml
+    register: pvc_mariadb_storage
+  - name: Assert mariadb-storage PVC manifest exists
+    ansible.builtin.assert:
+      that:
+      - pvc_mariadb_storage.stat.exists
+      - pvc_mariadb_storage.stat.size > 0
+      fail_msg: mariadb-storage PVC manifest not found
+      success_msg: mariadb-storage PVC manifest exists
+  - name: Slurp mariadb-storage PVC manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/pvcs/mariadb-storage.yml
+    register: pvc_mariadb_storage_content
+  - name: Assert mariadb-storage PVC manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''PersistentVolumeClaim'' in (pvc_mariadb_storage_content.content | b64decode)'
+      - '''mariadb-storage'' in (pvc_mariadb_storage_content.content | b64decode)'
+      - '''ReadWriteOnce'' in (pvc_mariadb_storage_content.content | b64decode)'
+      - '''1Gi'' in (pvc_mariadb_storage_content.content | b64decode)'
+      fail_msg: mariadb-storage PVC manifest is missing required fields
+      success_msg: mariadb-storage PVC manifest content is correct
+  - name: Stat mariadb-logs PVC manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/pvcs/mariadb-logs.yml
+    register: pvc_mariadb_logs
+  - name: Assert mariadb-logs PVC manifest exists
+    ansible.builtin.assert:
+      that:
+      - pvc_mariadb_logs.stat.exists
+      - pvc_mariadb_logs.stat.size > 0
+      fail_msg: mariadb-logs PVC manifest not found
+      success_msg: mariadb-logs PVC manifest exists
+  - name: Slurp mariadb-logs PVC manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/pvcs/mariadb-logs.yml
+    register: pvc_mariadb_logs_content
+  - name: Assert mariadb-logs PVC manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''PersistentVolumeClaim'' in (pvc_mariadb_logs_content.content | b64decode)'
+      - '''mariadb-logs'' in (pvc_mariadb_logs_content.content | b64decode)'
+      - '''ReadWriteOnce'' in (pvc_mariadb_logs_content.content | b64decode)'
+      - '''1Gi'' in (pvc_mariadb_logs_content.content | b64decode)'
+      fail_msg: mariadb-logs PVC manifest is missing required fields
+      success_msg: mariadb-logs PVC manifest content is correct
+  - name: Stat mariadb Service manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/services/mariadb.yml
+    register: svc_mariadb
+  - name: Assert mariadb Service manifest exists
+    ansible.builtin.assert:
+      that:
+      - svc_mariadb.stat.exists
+      - svc_mariadb.stat.size > 0
+      fail_msg: mariadb Service manifest not found
+      success_msg: mariadb Service manifest exists
+  - name: Slurp mariadb Service manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/services/mariadb.yml
+    register: svc_mariadb_content
+  - name: Assert mariadb Service manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''kind: Service'' in (svc_mariadb_content.content | b64decode)'
+      - '''name: mariadb'' in (svc_mariadb_content.content | b64decode)'
+      - '''3306'' in (svc_mariadb_content.content | b64decode)'
+      - '''app: etherpad-apb'' in (svc_mariadb_content.content | b64decode)'
+      - '''service: mariadb'' in (svc_mariadb_content.content | b64decode)'
+      fail_msg: mariadb Service manifest is missing required fields
+      success_msg: mariadb Service manifest content is correct
+  - name: Stat etherpad Service manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/services/etherpad.yml
+    register: svc_etherpad
+  - name: Assert etherpad Service manifest exists
+    ansible.builtin.assert:
+      that:
+      - svc_etherpad.stat.exists
+      - svc_etherpad.stat.size > 0
+      fail_msg: etherpad Service manifest not found
+      success_msg: etherpad Service manifest exists
+  - name: Slurp etherpad Service manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/services/etherpad.yml
+    register: svc_etherpad_content
+  - name: Assert etherpad Service manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''kind: Service'' in (svc_etherpad_content.content | b64decode)'
+      - '''name: etherpad'' in (svc_etherpad_content.content | b64decode)'
+      - '''9001'' in (svc_etherpad_content.content | b64decode)'
+      - '''app: etherpad-apb'' in (svc_etherpad_content.content | b64decode)'
+      - '''service: etherpad'' in (svc_etherpad_content.content | b64decode)'
+      fail_msg: etherpad Service manifest is missing required fields
+      success_msg: etherpad Service manifest content is correct
+  - name: Stat etherpad Route manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/routes/etherpad.yml
+    register: route_etherpad
+  - name: Assert etherpad Route manifest exists
+    ansible.builtin.assert:
+      that:
+      - route_etherpad.stat.exists
+      - route_etherpad.stat.size > 0
+      fail_msg: etherpad Route manifest not found
+      success_msg: etherpad Route manifest exists
+  - name: Slurp etherpad Route manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/routes/etherpad.yml
+    register: route_etherpad_content
+  - name: Assert etherpad Route manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''route.openshift.io/v1'' in (route_etherpad_content.content | b64decode)'
+      - '''kind: Route'' in (route_etherpad_content.content | b64decode)'
+      - '''name: etherpad'' in (route_etherpad_content.content | b64decode)'
+      - '''port-9001'' in (route_etherpad_content.content | b64decode)'
+      - '''targetPort'' in (route_etherpad_content.content | b64decode)'
+      fail_msg: etherpad Route manifest is missing required fields
+      success_msg: etherpad Route manifest content is correct
+  - name: Stat mariadb DeploymentConfig manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/deploymentconfigs/mariadb.yml
+    register: dc_mariadb
+  - name: Assert mariadb DeploymentConfig manifest exists
+    ansible.builtin.assert:
+      that:
+      - dc_mariadb.stat.exists
+      - dc_mariadb.stat.size > 0
+      fail_msg: mariadb DeploymentConfig manifest not found
+      success_msg: mariadb DeploymentConfig manifest exists
+  - name: Slurp mariadb DeploymentConfig manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/deploymentconfigs/mariadb.yml
+    register: dc_mariadb_content
+  - name: Assert mariadb DeploymentConfig manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''apps.openshift.io/v1'' in (dc_mariadb_content.content | b64decode)'
+      - '''kind: DeploymentConfig'' in (dc_mariadb_content.content | b64decode)'
+      - '''name: mariadb'' in (dc_mariadb_content.content | b64decode)'
+      - '''docker.io/mariadb:11'' in (dc_mariadb_content.content | b64decode)'
+      - '''MYSQL_ROOT_PASSWORD'' in (dc_mariadb_content.content | b64decode)'
+      - '''MYSQL_DATABASE'' in (dc_mariadb_content.content | b64decode)'
+      - '''MYSQL_USER'' in (dc_mariadb_content.content | b64decode)'
+      - '''MYSQL_PASSWORD'' in (dc_mariadb_content.content | b64decode)'
+      - '''mariadb-storage'' in (dc_mariadb_content.content | b64decode)'
+      - '''mariadb-logs'' in (dc_mariadb_content.content | b64decode)'
+      - '''replicas: 1'' in (dc_mariadb_content.content | b64decode)'
+      fail_msg: mariadb DeploymentConfig manifest is missing required fields
+      success_msg: mariadb DeploymentConfig manifest content is correct
+  - name: Stat etherpad DeploymentConfig manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/deploymentconfigs/etherpad.yml
+    register: dc_etherpad
+  - name: Assert etherpad DeploymentConfig manifest exists
+    ansible.builtin.assert:
+      that:
+      - dc_etherpad.stat.exists
+      - dc_etherpad.stat.size > 0
+      fail_msg: etherpad DeploymentConfig manifest not found
+      success_msg: etherpad DeploymentConfig manifest exists
+  - name: Slurp etherpad DeploymentConfig manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/deploymentconfigs/etherpad.yml
+    register: dc_etherpad_content
+  - name: Assert etherpad DeploymentConfig manifest has correct content
+    ansible.builtin.assert:
+      that:
+      - '''apps.openshift.io/v1'' in (dc_etherpad_content.content | b64decode)'
+      - '''kind: DeploymentConfig'' in (dc_etherpad_content.content | b64decode)'
+      - '''name: etherpad'' in (dc_etherpad_content.content | b64decode)'
+      - '''nicholaswilde/etherpad'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_ADMIN_PASSWORD'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_ADMIN_USER'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_DB_HOST'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_DB_PASSWORD'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_DB_USER'' in (dc_etherpad_content.content | b64decode)'
+      - '''ETHERPAD_DB_NAME'' in (dc_etherpad_content.content | b64decode)'
+      - '''replicas: 1'' in (dc_etherpad_content.content | b64decode)'
+      fail_msg: etherpad DeploymentConfig manifest is missing required fields
+      success_msg: etherpad DeploymentConfig manifest content is correct
+  - name: Stat role tasks/main.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/role/tasks/main.yml
+    register: role_tasks
+  - name: Assert role tasks/main.yml exists and is non-empty
+    ansible.builtin.assert:
+      that:
+      - role_tasks.stat.exists
+      - role_tasks.stat.size > 0
+      fail_msg: Role tasks/main.yml not found or empty
+      success_msg: Role tasks/main.yml exists
+  - name: Slurp role tasks/main.yml
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/role/tasks/main.yml
+    register: role_tasks_content
+  - name: Assert tombstoned APB modules are NOT referenced in tasks/main.yml
+    ansible.builtin.assert:
+      that:
+      - '''k8s_v1_'' not in (role_tasks_content.content | b64decode)'
+      - '''openshift_v1_'' not in (role_tasks_content.content | b64decode)'
+      - '''ansible.kubernetes-modules'' not in (role_tasks_content.content | b64decode)'
+      fail_msg: 'tasks/main.yml still references tombstoned APB modules (k8s_v1_*, openshift_v1_*, or ansible.kubernetes-modules). These must be replaced with kubernetes.core.k8s.
+
+        '
+      success_msg: No tombstoned APB modules found in tasks/main.yml
+  - name: Assert modern kubernetes.core.k8s module is used in tasks/main.yml
+    ansible.builtin.assert:
+      that:
+      - '''kubernetes.core.k8s'' in (role_tasks_content.content | b64decode)'
+      fail_msg: tasks/main.yml does not use kubernetes.core.k8s — migration incomplete
+      success_msg: tasks/main.yml correctly uses kubernetes.core.k8s
+  - name: Assert parameterised state variable is used in tasks/main.yml
+    ansible.builtin.assert:
+      that:
+      - ('{{' ~ ' state }}') in (role_tasks_content.content | b64decode)
+      fail_msg: 'tasks/main.yml does not use the parameterised ''{{ state }}'' variable — state may be hardcoded to ''present''.
+
+        '
+      success_msg: tasks/main.yml correctly uses parameterised state variable
+  - name: Stat role defaults/main.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/role/defaults/main.yml
+    register: role_defaults
+  - name: Assert role defaults/main.yml exists and is non-empty
+    ansible.builtin.assert:
+      that:
+      - role_defaults.stat.exists
+      - role_defaults.stat.size > 0
+      fail_msg: Role defaults/main.yml not found or empty
+      success_msg: Role defaults/main.yml exists
+  - name: Slurp role defaults/main.yml
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/role/defaults/main.yml
+    register: role_defaults_content
+  - name: Assert legacy boolean 'no' is not used in defaults/main.yml
+    ansible.builtin.assert:
+      that:
+      - '''playbook_debug: no'' not in (role_defaults_content.content | b64decode)'
+      fail_msg: defaults/main.yml still uses legacy boolean 'no' — should be 'false'
+      success_msg: Legacy boolean 'no' not found in defaults/main.yml
+  - name: Assert no plaintext password defaults in defaults/main.yml
+    ansible.builtin.assert:
+      that:
+      - '''mariadb_password'' not in (role_defaults_content.content | b64decode) or ''admin'' not in (role_defaults_content.content | b64decode)'
+      fail_msg: 'defaults/main.yml may contain plaintext password defaults (e.g., ''admin''). Passwords must not have defaults — they should be injected by AAP credential
+        types.
+
+        '
+      success_msg: No plaintext password defaults detected in defaults/main.yml
+  - name: Stat role meta/argument_specs.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/role/meta/argument_specs.yml
+    register: role_argspecs
+  - name: Assert role meta/argument_specs.yml exists and is non-empty
+    ansible.builtin.assert:
+      that:
+      - role_argspecs.stat.exists
+      - role_argspecs.stat.size > 0
+      fail_msg: Role meta/argument_specs.yml not found or empty
+      success_msg: Role meta/argument_specs.yml exists
+  - name: Slurp role meta/argument_specs.yml
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/role/meta/argument_specs.yml
+    register: role_argspecs_content
+  - name: Assert argument_specs.yml documents required credential variables
+    ansible.builtin.assert:
+      that:
+      - '''mariadb_password'' in (role_argspecs_content.content | b64decode)'
+      - '''mariadb_root_password'' in (role_argspecs_content.content | b64decode)'
+      - '''etherpad_admin_password'' in (role_argspecs_content.content | b64decode)'
+      - '''etherpad_apb_namespace'' in (role_argspecs_content.content | b64decode)'
+      - '''no_log'' in (role_argspecs_content.content | b64decode)'
+      fail_msg: argument_specs.yml is missing required credential variable documentation
+      success_msg: argument_specs.yml documents all required credential variables
+  - name: Stat role meta/main.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/role/meta/main.yml
+    register: role_meta
+  - name: Assert role meta/main.yml exists and is non-empty
+    ansible.builtin.assert:
+      that:
+      - role_meta.stat.exists
+      - role_meta.stat.size > 0
+      fail_msg: Role meta/main.yml not found or empty
+      success_msg: Role meta/main.yml exists
+  - name: Stat collections/requirements.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/role/collections/requirements.yml
+    register: role_requirements
+  - name: Assert collections/requirements.yml exists and is non-empty
+    ansible.builtin.assert:
+      that:
+      - role_requirements.stat.exists
+      - role_requirements.stat.size > 0
+      fail_msg: collections/requirements.yml not found or empty
+      success_msg: collections/requirements.yml exists
+  - name: Slurp collections/requirements.yml
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/role/collections/requirements.yml
+    register: role_requirements_content
+  - name: Assert collections/requirements.yml declares kubernetes.core and redhat.openshift
+    ansible.builtin.assert:
+      that:
+      - '''kubernetes.core'' in (role_requirements_content.content | b64decode)'
+      - '''redhat.openshift'' in (role_requirements_content.content | b64decode)'
+      fail_msg: 'collections/requirements.yml is missing kubernetes.core or redhat.openshift collection dependencies
+
+        '
+      success_msg: collections/requirements.yml declares required collections
+  - name: Gather service facts (cluster connectivity check)
+    ansible.builtin.service_facts: null
+    tags: molecule-notest
+  - name: Check PVCs are Bound in target namespace
+    ansible.builtin.debug:
+      msg: 'Run: oc get pvc -n {{ etherpad_apb_namespace }} Expected: mariadb-storage and mariadb-logs both show STATUS=Bound
+
+        '
+    vars:
+      etherpad_apb_namespace: etherpad-apb
+    tags: molecule-notest
+  - name: Check Services exist in target namespace
+    ansible.builtin.debug:
+      msg: 'Run: oc get svc -n {{ etherpad_apb_namespace }} Expected: mariadb (3306) and etherpad (9001) services present
+
+        '
+    vars:
+      etherpad_apb_namespace: etherpad-apb
+    tags: molecule-notest
+  - name: Check etherpad Route has a hostname assigned
+    ansible.builtin.debug:
+      msg: 'Run: oc get route etherpad -n {{ etherpad_apb_namespace }} Expected: etherpad route shows a non-empty HOST/PORT value
+
+        '
+    vars:
+      etherpad_apb_namespace: etherpad-apb
+    tags: molecule-notest
+  - name: Check DeploymentConfigs are ready
+    ansible.builtin.debug:
+      msg: 'Run: oc get dc -n {{ etherpad_apb_namespace }} Expected: mariadb and etherpad DeploymentConfigs show 1/1 ready replicas
+
+        '
+    vars:
+      etherpad_apb_namespace: etherpad-apb
+    tags: molecule-notest
+  - name: Check Etherpad HTTP endpoint is reachable
+    ansible.builtin.uri:
+      url: http://{{ etherpad_route_host }}/
+      method: GET
+      status_code: 200
+      timeout: 10
+    vars:
+      etherpad_route_host: etherpad.{{ etherpad_apb_namespace }}.apps.example.com
+    tags: molecule-notest

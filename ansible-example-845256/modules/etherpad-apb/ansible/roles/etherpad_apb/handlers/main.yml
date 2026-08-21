@@ -1,0 +1,3 @@
+---
+# No handlers required for this Kubernetes/OpenShift declarative role.
+# All resources are managed via kubernetes.core.k8s which is idempotent and stateless.

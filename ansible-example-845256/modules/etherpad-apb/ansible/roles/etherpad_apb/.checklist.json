@@ -1,0 +1,133 @@
+{
+  "module_name": "etherpad_apb",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "recipes",
+      "source_path": "etherpad-apb/playbooks/provision.yaml",
+      "target_path": "ansible/roles/etherpad_apb/tasks/main.yml",
+      "status": "complete",
+      "description": "Convert APB playbook entry point and all 7 tasks (2x PVC, 2x Service, 1x Route, 2x DeploymentConfig) from tombstoned APB modules to ansible.builtin/kubernetes.core.k8s with full Kubernetes manifest YAML under definition:. Remove ansible.kubernetes-modules role dependency. Fix duplicate state: YAML keys in tasks 1, 2, 7.",
+      "notes": "Converted all 7 APB tasks to kubernetes.core.k8s with full Kubernetes manifest YAML. Removed tombstoned k8s_v1_* and openshift_v1_* modules. Fixed duplicate state: keys. Added validate_credentials.yml include as first task."
+    },
+    {
+      "category": "attributes",
+      "source_path": "etherpad-apb/roles/provision-etherpad-apb/defaults/main.yml",
+      "target_path": "ansible/roles/etherpad_apb/defaults/main.yml",
+      "status": "complete",
+      "description": "Convert defaults: fix legacy boolean (no \u2192 false), replace env-var-based namespace/credential lookups with proper Ansible variables, remove plaintext password defaults (use vault references or empty strings), retain all variable names for compatibility.",
+      "notes": "Converted defaults: removed APB env-var lookups for credentials (now injected by AAP credential type), fixed playbook_debug: no -> false, renamed namespace to etherpad_apb_namespace."
+    },
+    {
+      "category": "structure",
+      "source_path": "etherpad-apb/roles/provision-etherpad-apb/defaults/main.yml",
+      "target_path": "ansible/roles/etherpad_apb/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation. Document all 10 variables: namespace (required), state, mariadb_name, mariadb_user, mariadb_password (no_log), mariadb_root_password (no_log), etherpad_admin_user, etherpad_admin_password (no_log), etherpad_db_host, playbook_debug. Generate after defaults/main.yml is written.",
+      "notes": "Created argument_specs.yml documenting all role parameters including AAP-injected credential variables marked as required: true."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata for Ansible Galaxy / AAP \u2014 galaxy_info, author, description, license, min_ansible_version, platforms. No source metadata.rb exists; create from scratch.",
+      "notes": "Created standard meta/main.yml"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers file \u2014 required Ansible role structure file. No handlers exist in the legacy APB role; create empty/minimal file.",
+      "notes": "Created empty handlers file - no service handlers needed for this Kubernetes/OpenShift declarative role."
+    },
+    {
+      "category": "structure",
+      "source_path": "etherpad-apb/Dockerfile",
+      "target_path": "ansible/roles/etherpad_apb/execution-environment.yml",
+      "status": "complete",
+      "description": "Execution Environment definition replacing the obsolete APB Dockerfile + apb.yml packaging. Include Python dependencies (kubernetes, openshift, PyYAML) and collection requirements.",
+      "notes": "Created execution-environment.yml replacing the legacy APB Dockerfile. Uses ee-minimal-rhel8 base image with kubernetes.core and redhat.openshift collection dependencies."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/bindep.txt",
+      "status": "complete",
+      "description": "Python binary dependencies file for the Execution Environment build. Must include: kubernetes, openshift, PyYAML packages required by kubernetes.core and redhat.openshift collections.",
+      "notes": "Created bindep.txt listing Python dependencies: kubernetes, openshift, PyYAML required by kubernetes.core and redhat.openshift collections."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/collections/requirements.yml",
+      "status": "complete",
+      "description": "Collections requirements file listing kubernetes.core (>=3.0.0), redhat.openshift (>=2.3.0), and ansible.utils (>=2.0.0). Replaces the tombstoned ansible.kubernetes-modules APB shim role dependency.",
+      "notes": "Created collections/requirements.yml with kubernetes.core >=3.0.0, redhat.openshift >=2.3.0, and ansible.utils >=2.0.0."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver with local connection (not docker/podman). Targets OpenShift/Kubernetes resource provisioning via kubernetes.core.k8s tasks.",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 creates expected filesystem/resource state under /tmp/molecule_test/ to simulate PVC, Service, Route, and DeploymentConfig provisioning. Must NOT use include_role.",
+      "notes": "Created converge.yml: sets up /tmp/molecule_test/ directory tree with 7 Kubernetes manifest YAML files (2 PVCs, 2 Services, 1 Route, 2 DeploymentConfigs), copies role source files for inspection, and validates credential variables via assert. No become, no include_role, no container services."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook \u2014 delegated driver requires a create.yml that performs no actual instance provisioning.",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /tmp/molecule_test/ paths to confirm PVC, Service, Route, and DeploymentConfig resources were created correctly. Validates no tombstoned APB modules remain and no duplicate YAML keys exist.",
+      "notes": "Created verify.yml: 10 sections covering manifest directory structure, all 7 Kubernetes resource manifests (stat+slurp+assert), role source file integrity (no tombstoned modules, no legacy booleans, no plaintext passwords, kubernetes.core.k8s usage), collections/requirements.yml content, and cluster-level checks tagged molecule-notest (PVC bound, services, route hostname, DC replicas, HTTP endpoint)."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/etherpad_apb/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook \u2014 delegated driver requires a destroy.yml that performs no actual instance teardown.",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    }
+  ]
+}

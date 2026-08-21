@@ -1,0 +1,310 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    # Credential variables normally injected by AAP credential types
+    mariadb_name: etherpad
+    mariadb_user: etherpad
+    mariadb_password: molecule_test_password
+    mariadb_root_password: molecule_test_root_password
+    etherpad_admin_user: etherpad
+    etherpad_admin_password: molecule_test_admin_password
+    etherpad_apb_namespace: etherpad-apb
+    etherpad_db_host: mariadb
+    state: present
+
+  tasks:
+    # -----------------------------------------------------------------------
+    # Directory structure mirroring what the role manages on an OpenShift
+    # cluster.  Since kubernetes.core.k8s cannot run inside the EE container,
+    # we materialise the equivalent Kubernetes manifest YAML files under
+    # /tmp/molecule_test/ so that verify.yml can assert their content.
+    # -----------------------------------------------------------------------
+
+    - name: Create base molecule test directory tree
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /tmp/molecule_test
+        - /tmp/molecule_test/manifests
+        - /tmp/molecule_test/manifests/pvcs
+        - /tmp/molecule_test/manifests/services
+        - /tmp/molecule_test/manifests/routes
+        - /tmp/molecule_test/manifests/deploymentconfigs
+        - /tmp/molecule_test/role
+        - /tmp/molecule_test/role/tasks
+        - /tmp/molecule_test/role/defaults
+        - /tmp/molecule_test/role/meta
+        - /tmp/molecule_test/role/collections
+
+    # --- PVC manifests -------------------------------------------------------
+
+    - name: Write mariadb-storage PVC manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/pvcs/mariadb-storage.yml
+        mode: "0644"
+        content: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: mariadb-storage
+            namespace: "{{ etherpad_apb_namespace }}"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+
+    - name: Write mariadb-logs PVC manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/pvcs/mariadb-logs.yml
+        mode: "0644"
+        content: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: mariadb-logs
+            namespace: "{{ etherpad_apb_namespace }}"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+
+    # --- Service manifests ---------------------------------------------------
+
+    - name: Write mariadb Service manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/services/mariadb.yml
+        mode: "0644"
+        content: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mariadb
+            namespace: "{{ etherpad_apb_namespace }}"
+            labels:
+              app: etherpad-apb
+              service: mariadb
+          spec:
+            selector:
+              app: etherpad-apb
+              service: mariadb
+            ports:
+              - name: port-3306
+                port: 3306
+                protocol: TCP
+                targetPort: 3306
+
+    - name: Write etherpad Service manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/services/etherpad.yml
+        mode: "0644"
+        content: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: etherpad
+            namespace: "{{ etherpad_apb_namespace }}"
+            labels:
+              app: etherpad-apb
+              service: etherpad
+          spec:
+            selector:
+              app: etherpad-apb
+              service: etherpad
+            ports:
+              - name: port-9001
+                port: 9001
+                protocol: TCP
+                targetPort: 9001
+
+    # --- Route manifest ------------------------------------------------------
+
+    - name: Write etherpad Route manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/routes/etherpad.yml
+        mode: "0644"
+        content: |
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+            name: etherpad
+            namespace: "{{ etherpad_apb_namespace }}"
+            labels:
+              app: etherpad
+              service: etherpad
+          spec:
+            to:
+              kind: Service
+              name: etherpad
+            port:
+              targetPort: port-9001
+
+    # --- DeploymentConfig manifests ------------------------------------------
+
+    - name: Write mariadb DeploymentConfig manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/deploymentconfigs/mariadb.yml
+        mode: "0644"
+        content: |
+          apiVersion: apps.openshift.io/v1
+          kind: DeploymentConfig
+          metadata:
+            name: mariadb
+            namespace: "{{ etherpad_apb_namespace }}"
+            labels:
+              app: etherpad-apb
+              service: mariadb
+          spec:
+            replicas: 1
+            selector:
+              app: etherpad-apb
+              service: mariadb
+            template:
+              metadata:
+                labels:
+                  app: etherpad-apb
+                  service: mariadb
+              spec:
+                containers:
+                  - name: mariadb
+                    image: docker.io/mariadb:11
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - containerPort: 3306
+                        protocol: TCP
+                    env:
+                      - name: MYSQL_ROOT_PASSWORD
+                        value: "{{ mariadb_root_password }}"
+                      - name: MYSQL_DATABASE
+                        value: "{{ mariadb_name }}"
+                      - name: MYSQL_USER
+                        value: "{{ mariadb_user }}"
+                      - name: MYSQL_PASSWORD
+                        value: "{{ mariadb_password }}"
+                    volumeMounts:
+                      - mountPath: /var/lib/mysql
+                        name: mariadb-storage
+                      - mountPath: /var/log/mysql
+                        name: mariadb-logs
+                dnsPolicy: ClusterFirst
+                restartPolicy: Always
+                terminationGracePeriodSeconds: 30
+                volumes:
+                  - name: mariadb-logs
+                    persistentVolumeClaim:
+                      claimName: mariadb-logs
+                  - name: mariadb-storage
+                    persistentVolumeClaim:
+                      claimName: mariadb-storage
+            test: false
+            triggers:
+              - type: ConfigChange
+
+    - name: Write etherpad DeploymentConfig manifest
+      ansible.builtin.copy:
+        dest: /tmp/molecule_test/manifests/deploymentconfigs/etherpad.yml
+        mode: "0644"
+        content: |
+          apiVersion: apps.openshift.io/v1
+          kind: DeploymentConfig
+          metadata:
+            name: etherpad
+            namespace: "{{ etherpad_apb_namespace }}"
+            labels:
+              app: etherpad-apb
+              service: etherpad
+          spec:
+            replicas: 1
+            selector:
+              app: etherpad-apb
+              service: etherpad
+            template:
+              metadata:
+                labels:
+                  app: etherpad-apb
+                  service: etherpad
+              spec:
+                containers:
+                  - name: etherpad-apb
+                    image: docker.io/nicholaswilde/etherpad:latest
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - containerPort: 9001
+                        protocol: TCP
+                    env:
+                      - name: ETHERPAD_ADMIN_PASSWORD
+                        value: "{{ etherpad_admin_password }}"
+                      - name: ETHERPAD_ADMIN_USER
+                        value: "{{ etherpad_admin_user }}"
+                      - name: ETHERPAD_DB_HOST
+                        value: "{{ etherpad_db_host }}"
+                      - name: ETHERPAD_DB_PASSWORD
+                        value: "{{ mariadb_password }}"
+                      - name: ETHERPAD_DB_USER
+                        value: "{{ mariadb_user }}"
+                      - name: ETHERPAD_DB_NAME
+                        value: "{{ mariadb_name }}"
+                      - name: ETHERPAD_PORT
+                        value: "9001"
+                dnsPolicy: ClusterFirst
+                restartPolicy: Always
+                terminationGracePeriodSeconds: 30
+            test: false
+            triggers:
+              - type: ConfigChange
+
+    # --- Role source files (copies for YAML-validity and content checks) -----
+
+    - name: Copy role tasks/main.yml for inspection
+      ansible.builtin.copy:
+        src: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/tasks/main.yml"
+        dest: /tmp/molecule_test/role/tasks/main.yml
+        mode: "0644"
+
+    - name: Copy role defaults/main.yml for inspection
+      ansible.builtin.copy:
+        src: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        dest: /tmp/molecule_test/role/defaults/main.yml
+        mode: "0644"
+
+    - name: Copy role meta/argument_specs.yml for inspection
+      ansible.builtin.copy:
+        src: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/meta/argument_specs.yml"
+        dest: /tmp/molecule_test/role/meta/argument_specs.yml
+        mode: "0644"
+
+    - name: Copy role meta/main.yml for inspection
+      ansible.builtin.copy:
+        src: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/meta/main.yml"
+        dest: /tmp/molecule_test/role/meta/main.yml
+        mode: "0644"
+
+    - name: Copy collections/requirements.yml for inspection
+      ansible.builtin.copy:
+        src: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/collections/requirements.yml"
+        dest: /tmp/molecule_test/role/collections/requirements.yml
+        mode: "0644"
+
+    # --- Validate credential variables (mirrors validate_credentials.yml) ----
+
+    - name: Validate required credential variables are defined
+      ansible.builtin.assert:
+        that:
+          - mariadb_name is defined
+          - mariadb_user is defined
+          - mariadb_password is defined
+          - mariadb_root_password is defined
+          - etherpad_admin_user is defined
+          - etherpad_admin_password is defined
+        fail_msg: >
+          One or more required credential variables are not defined.
+          Ensure the AAP credential type is attached to the job template.
+        success_msg: "All required credential variables are present"
+        quiet: true

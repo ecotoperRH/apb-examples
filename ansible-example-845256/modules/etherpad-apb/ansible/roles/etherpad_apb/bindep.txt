@@ -1,0 +1,15 @@
+# bindep.txt — system-level binary dependencies for the Execution Environment
+# These Python packages are required by kubernetes.core and redhat.openshift collections.
+
+# Python package manager (ensure pip is available)
+python3-pip [platform:rpm]
+python3-pip [platform:dpkg]
+
+# Required by kubernetes.core collection
+python3-kubernetes [platform:rpm]
+
+# Required by redhat.openshift collection
+python3-openshift [platform:rpm]
+
+# Required by both collections for YAML manifest handling
+python3-PyYAML [platform:rpm]

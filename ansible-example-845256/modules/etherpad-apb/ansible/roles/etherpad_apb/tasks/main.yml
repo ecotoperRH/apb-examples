@@ -1,0 +1,203 @@
+---
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+- name: Create mariadb storage volume claim
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: mariadb-storage
+        namespace: "{{ etherpad_apb_namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+- name: Create mariadb logs volume claim
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: mariadb-logs
+        namespace: "{{ etherpad_apb_namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+- name: Create mariadb service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: mariadb
+        namespace: "{{ etherpad_apb_namespace }}"
+        labels:
+          app: etherpad-apb
+          service: mariadb
+      spec:
+        selector:
+          app: etherpad-apb
+          service: mariadb
+        ports:
+          - name: port-3306
+            port: 3306
+            protocol: TCP
+            targetPort: 3306
+- name: Create etherpad service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: etherpad
+        namespace: "{{ etherpad_apb_namespace }}"
+        labels:
+          app: etherpad-apb
+          service: etherpad
+      spec:
+        selector:
+          app: etherpad-apb
+          service: etherpad
+        ports:
+          - name: port-9001
+            port: 9001
+            protocol: TCP
+            targetPort: 9001
+- name: Create etherpad route
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: etherpad
+        namespace: "{{ etherpad_apb_namespace }}"
+        labels:
+          app: etherpad
+          service: etherpad
+      spec:
+        to:
+          kind: Service
+          name: etherpad
+        port:
+          targetPort: port-9001
+- name: Create mariadb deployment config
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: apps.openshift.io/v1
+      kind: DeploymentConfig
+      metadata:
+        name: mariadb
+        namespace: "{{ etherpad_apb_namespace }}"
+        labels:
+          app: etherpad-apb
+          service: mariadb
+      spec:
+        replicas: 1
+        selector:
+          app: etherpad-apb
+          service: mariadb
+        template:
+          metadata:
+            labels:
+              app: etherpad-apb
+              service: mariadb
+          spec:
+            containers:
+              - name: mariadb
+                image: docker.io/mariadb:11
+                imagePullPolicy: IfNotPresent
+                ports:
+                  - containerPort: 3306
+                    protocol: TCP
+                env:
+                  - name: MYSQL_ROOT_PASSWORD
+                    value: "{{ mariadb_root_password }}"
+                  - name: MYSQL_DATABASE
+                    value: "{{ mariadb_name }}"
+                  - name: MYSQL_USER
+                    value: "{{ mariadb_user }}"
+                  - name: MYSQL_PASSWORD
+                    value: "{{ mariadb_password }}"
+                volumeMounts:
+                  - mountPath: /var/lib/mysql
+                    name: mariadb-storage
+                  - mountPath: /var/log/mysql
+                    name: mariadb-logs
+                terminationMessagePath: /dev/termination-log
+                workingDir: /
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            volumes:
+              - name: mariadb-logs
+                persistentVolumeClaim:
+                  claimName: mariadb-logs
+              - name: mariadb-storage
+                persistentVolumeClaim:
+                  claimName: mariadb-storage
+        test: false
+        triggers:
+          - type: ConfigChange
+- name: Create etherpad deployment config
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: apps.openshift.io/v1
+      kind: DeploymentConfig
+      metadata:
+        name: etherpad
+        namespace: "{{ etherpad_apb_namespace }}"
+        labels:
+          app: etherpad-apb
+          service: etherpad
+      spec:
+        replicas: 1
+        selector:
+          app: etherpad-apb
+          service: etherpad
+        template:
+          metadata:
+            labels:
+              app: etherpad-apb
+              service: etherpad
+          spec:
+            containers:
+              - name: etherpad-apb
+                image: docker.io/nicholaswilde/etherpad:latest
+                imagePullPolicy: IfNotPresent
+                ports:
+                  - containerPort: 9001
+                    protocol: TCP
+                env:
+                  - name: ETHERPAD_ADMIN_PASSWORD
+                    value: "{{ etherpad_admin_password }}"
+                  - name: ETHERPAD_ADMIN_USER
+                    value: "{{ etherpad_admin_user }}"
+                  - name: ETHERPAD_DB_HOST
+                    value: "{{ etherpad_db_host }}"
+                  - name: ETHERPAD_DB_PASSWORD
+                    value: "{{ mariadb_password }}"
+                  - name: ETHERPAD_DB_USER
+                    value: "{{ mariadb_user }}"
+                  - name: ETHERPAD_DB_NAME
+                    value: "{{ mariadb_name }}"
+                  - name: ETHERPAD_PORT
+                    value: "9001"
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+        test: false
+        triggers:
+          - type: ConfigChange

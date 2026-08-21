@@ -1,0 +1,8 @@
+---
+etherpad_apb_namespace: etherpad-apb
+state: present
+mariadb_name: etherpad
+mariadb_user: etherpad
+etherpad_admin_user: etherpad
+etherpad_db_host: mariadb
+playbook_debug: false

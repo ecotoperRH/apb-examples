@@ -1,0 +1,60 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy Etherpad Lite and MariaDB to OpenShift
+    description:
+      - Deploys Etherpad Lite collaborative note-taking application alongside a MariaDB database onto an OpenShift/Kubernetes cluster.
+      - Creates PersistentVolumeClaims, Services, an OpenShift Route, and DeploymentConfigs for both MariaDB and Etherpad.
+    options:
+      etherpad_apb_namespace:
+        type: str
+        required: true
+        description: OpenShift/Kubernetes namespace for all resources.
+      state:
+        type: str
+        required: false
+        default: present
+        choices:
+          - present
+          - absent
+        description: Desired state of all Kubernetes resources.
+      mariadb_name:
+        type: str
+        required: false
+        default: etherpad
+        description: MariaDB database name.
+      mariadb_user:
+        type: str
+        required: false
+        default: etherpad
+        description: MariaDB application user.
+      mariadb_password:
+        type: str
+        required: true
+        no_log: true
+        description: MariaDB application user password. Injected at runtime by the AAP credential type — do not set a default.
+      mariadb_root_password:
+        type: str
+        required: true
+        no_log: true
+        description: MariaDB root password. Injected at runtime by the AAP credential type — do not set a default.
+      etherpad_admin_user:
+        type: str
+        required: false
+        default: etherpad
+        description: Etherpad admin username.
+      etherpad_admin_password:
+        type: str
+        required: true
+        no_log: true
+        description: Etherpad admin password. Injected at runtime by the AAP credential type — do not set a default.
+      etherpad_db_host:
+        type: str
+        required: false
+        default: mariadb
+        description: Hostname of the MariaDB service (defaults to in-cluster service name).
+      playbook_debug:
+        type: bool
+        required: false
+        default: false
+        description: Enable debug output (APB-era flag; consider removing in future versions).
