@@ -1,0 +1,50 @@
+[
+  {
+    "name": "apb-base",
+    "path": "apb-base/",
+    "description": "Shared base runtime image and entrypoint framework for all APBs, providing action dispatch, OpenShift authentication, and bind credential lifecycle management.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "etherpad-apb",
+    "path": "etherpad-apb/",
+    "description": "Deploys Etherpad Lite collaborative note-taking application backed by MariaDB on OpenShift, provisioning PersistentVolumeClaims, Services, a Route, and DeploymentConfigs.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "hastebin-apb",
+    "path": "hastebin-apb/",
+    "description": "Deploys Hastebin pastebin-style web app with a Memcached sidecar on OpenShift, using a Jinja2-templated ConfigMap for configuration and a multi-container DeploymentConfig.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "jenkins-apb",
+    "path": "jenkins-apb/",
+    "description": "Deploys Jenkins CI/CD server on OpenShift with optional persistence, OAuth integration, TLS edge-terminated Route, and optional Source-to-Image custom build support.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "mediawiki123-apb",
+    "path": "mediawiki123-apb/",
+    "description": "Deploys MediaWiki 1.23 on OpenShift using a pre-built image, provisioning a PVC, DeploymentConfig, Service, and Route with a separate deprovision and test playbook.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "nginx-oss-apb",
+    "path": "nginx-oss-apb/",
+    "description": "Deploys NGINX OSS as a reverse proxy or static web server on OpenShift with optional load balancing, using a Jinja2-generated ConfigMap for NGINX configuration.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-apb",
+    "path": "pyzip-demo-apb/",
+    "description": "Deploys the py-zip-demo Python web application on OpenShift with zero required parameters, provisioning a Route, Service, and DeploymentConfig with a ConfigChange trigger.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-db-apb",
+    "path": "pyzip-demo-db-apb/",
+    "description": "Deploys a PostGIS-enabled PostgreSQL database seeded with geospatial demo data on OpenShift, emitting bind credentials via asb_encode_binding for consumption by pyzip-demo-apb.",
+    "technology": "Ansible"
+  }
+]
