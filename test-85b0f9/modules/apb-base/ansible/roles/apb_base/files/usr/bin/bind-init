@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# bind-init — Keeps the APB container alive while the broker collects bind credentials.
+# The broker removes the bind-creds file via broker-bind-creds once collected.
+# Pod will stay up for RETRIES * SLEEP_INTERVAL seconds (default: 150 * 2 = 5 minutes).
+
+RETRIES="${RETRIES:-150}"
+SLEEP_INTERVAL="${SLEEP_INTERVAL:-2}"
+CREDS="/var/tmp/bind-creds"
+
+# Graceful shutdown on SIGTERM/SIGINT
+trap 'exit 0' SIGTERM SIGINT
+
+for ((r = 1; r <= RETRIES; r++)); do
+  if [ -f "${CREDS}" ]; then
+    echo "Waiting for broker to gather the bind credentials..."
+    sleep "${SLEEP_INTERVAL}"
+  else
+    echo "Broker has received bind credentials."
+    echo "Waiting for broker exec to complete..."
+    sleep 5
+    exit 0
+  fi
+done
+
+echo "bind-init timed out after ${RETRIES} retries."
+exit 1

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# test-retrieval — Emits test results to stdout for collection.
+# Exit codes:
+#   0 — Test results found and emitted
+#   2 — Test results not available
+
+TEST_RESULT="${TEST_RESULT:-/var/tmp/test-result}"
+
+if [ ! -s "${TEST_RESULT}" ]; then
+  echo "Test results are not available."
+  exit 2
+else
+  cat "${TEST_RESULT}" || exit 1
+  rm "${TEST_RESULT}"
+  exit 0
+fi

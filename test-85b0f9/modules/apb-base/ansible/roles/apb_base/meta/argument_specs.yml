@@ -1,0 +1,90 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy APB base image runtime scripts and Ansible configuration
+    description:
+      - Deploys the modernized Ansible Playbook Bundle (APB) runtime scripts, Ansible configuration, and static inventory to the target host.
+      - Manages the container user, directory structure, and lifecycle paths required by the APB entrypoint and bind/test-retrieval scripts.
+      - Does not build the container image itself; use the Dockerfiles in files/ with docker build or ansible-builder with execution-environment.yml.
+    options:
+      apb_user_name:
+        type: str
+        required: false
+        default: apb
+        description:
+          - Username for the APB/EE container user created inside the image.
+      apb_user_uid:
+        type: int
+        required: false
+        default: 1001
+        description:
+          - UID for the container user.
+          - Must be non-root for OpenShift arbitrary-UID compatibility (OpenShift requires UID >= 1000).
+      apb_base_dir:
+        type: str
+        required: false
+        default: /opt/apb
+        description:
+          - Home and base directory for the APB user inside the container.
+          - Used as HOME and the working directory for playbook execution.
+      apb_roles_path:
+        type: str
+        required: false
+        default: /etc/ansible/roles:/opt/ansible/roles
+        description:
+          - Colon-separated Ansible roles search path written into ansible.cfg inside the container image.
+      apb_collections_path:
+        type: str
+        required: false
+        default: /usr/share/ansible/collections:/opt/ansible/collections
+        description:
+          - Colon-separated Ansible collections search path written into ansible.cfg inside the container image.
+      apb_secrets_dir:
+        type: str
+        required: false
+        default: /etc/apb-secrets
+        description:
+          - Directory where the Ansible Service Broker mounts secrets into the running APB container.
+          - The entrypoint script reads secret files from this directory and passes them as extra-vars.
+      apb_bind_creds_path:
+        type: str
+        required: false
+        default: /var/tmp/bind-creds
+        description:
+          - Absolute path to the bind credentials file written by the APB provision playbook.
+          - broker-bind-creds reads and emits this file; bind-init polls until the broker removes it.
+      apb_test_result_path:
+        type: str
+        required: false
+        default: /var/tmp/test-result
+        description:
+          - Absolute path to the test result file written by the APB test playbook.
+          - test-retrieval reads and emits this file; test-retrieval-init polls until the user collects it.
+      apb_bind_retries:
+        type: int
+        required: false
+        default: 150
+        description:
+          - Number of polling retries in bind-init and test-retrieval-init before timing out.
+          - Combined with apb_bind_sleep, the default gives a 5-minute timeout (150 x 2 seconds).
+      apb_bind_sleep:
+        type: int
+        required: false
+        default: 2
+        description:
+          - Sleep interval in seconds between polling retries in bind-init and test-retrieval-init.
+      openshift_target:
+        type: str
+        required: false
+        default: https://kubernetes.default
+        description:
+          - OpenShift/Kubernetes API endpoint URL used by oc-login.sh when OPENSHIFT_TARGET is not set at runtime.
+          - Defaults to the in-cluster Kubernetes service endpoint.
+      openshift_token:
+        type: str
+        required: false
+        default: ""
+        description:
+          - OpenShift authentication token used by oc-login.sh. Sensitive.
+          - Inject via an AAP Credential Type rather than storing in inventory or vars files.
+          - Leave empty to use the in-cluster service account token at /var/run/secrets/kubernetes.io/serviceaccount/token.

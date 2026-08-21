@@ -1,0 +1,24 @@
+version: 3
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: --pre
+base_image:
+  name: registry.access.redhat.com/ubi9/ubi:latest
+dependencies:
+  galaxy: collections/requirements.yml
+  python: requirements.txt
+  system: bindep.txt
+additional_build_steps:
+  prepend_galaxy:
+  - RUN dnf -y install openshift-clients python3-openshift && dnf clean all
+  append_final:
+  - COPY files/etc/ansible/ansible.cfg /etc/ansible/ansible.cfg
+  - COPY files/etc/ansible/hosts /etc/ansible/hosts
+  - COPY files/usr/bin/bind-init /usr/bin/bind-init
+  - COPY files/usr/bin/broker-bind-creds /usr/bin/broker-bind-creds
+  - COPY files/usr/bin/entrypoint.sh /usr/bin/entrypoint.sh
+  - COPY files/usr/bin/oc-login.sh /usr/bin/oc-login.sh
+  - COPY files/usr/bin/test-retrieval /usr/bin/test-retrieval
+  - COPY files/usr/bin/test-retrieval-init /usr/bin/test-retrieval-init
+  - RUN chmod 755 /usr/bin/bind-init /usr/bin/broker-bind-creds /usr/bin/entrypoint.sh /usr/bin/oc-login.sh /usr/bin/test-retrieval /usr/bin/test-retrieval-init
+  - USER 1001
+  - ENTRYPOINT ["/usr/bin/entrypoint.sh"]

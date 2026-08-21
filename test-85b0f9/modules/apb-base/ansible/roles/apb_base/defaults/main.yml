@@ -1,0 +1,13 @@
+---
+apb_user_name: apb
+apb_user_uid: 1001
+apb_base_dir: /opt/apb
+apb_roles_path: /etc/ansible/roles:/opt/ansible/roles
+apb_collections_path: /usr/share/ansible/collections:/opt/ansible/collections
+apb_secrets_dir: /etc/apb-secrets
+apb_bind_creds_path: /var/tmp/bind-creds
+apb_test_result_path: /var/tmp/test-result
+apb_bind_retries: 150
+apb_bind_sleep: 2
+openshift_target: https://kubernetes.default
+openshift_token: ""
