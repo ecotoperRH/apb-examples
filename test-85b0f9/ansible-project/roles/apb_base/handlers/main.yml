@@ -1,0 +1,6 @@
+---
+# apb_base handlers/main.yml
+#
+# This role manages static files for the APB container base image.
+# No services are managed by this role, so no handlers are required.
+# Handlers are included here as a placeholder for role structure completeness.

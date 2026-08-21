@@ -1,0 +1,7 @@
+---
+- name: Run apb_base
+  hosts: all
+
+
+  roles:
+    - apb_base

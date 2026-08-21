@@ -1,0 +1,3 @@
+openshift-clients [platform:rpm]
+python3-openshift  [platform:rpm]
+git                [platform:rpm]

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# test-retrieval-init — Keeps the APB container alive while the user collects test results.
+# Pod will stay up for RETRIES * SLEEP_INTERVAL seconds (default: 150 * 2 = 5 minutes).
+
+RETRIES="${RETRIES:-150}"
+SLEEP_INTERVAL="${SLEEP_INTERVAL:-2}"
+TEST_RESULT="/var/tmp/test-result"
+
+# Graceful shutdown on SIGTERM/SIGINT
+trap 'exit 0' SIGTERM SIGINT
+
+for ((r = 1; r <= RETRIES; r++)); do
+  if [ -f "${TEST_RESULT}" ]; then
+    echo "Waiting for the user to gather the test results..."
+    sleep "${SLEEP_INTERVAL}"
+  else
+    echo "User has gathered the test results."
+    echo ""
+    sleep 5
+    exit 0
+  fi
+done
+
+echo "test-retrieval-init timed out after ${RETRIES} retries."
+exit 1

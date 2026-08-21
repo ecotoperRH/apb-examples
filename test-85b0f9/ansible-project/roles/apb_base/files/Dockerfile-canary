@@ -1,0 +1,65 @@
+FROM registry.access.redhat.com/ubi9/ubi:latest
+
+LABEL maintainer="Ansible Playbook Bundle Community" \
+      com.redhat.apb.version="0.1.0"
+
+ENV USER_NAME=apb \
+    USER_UID=1001 \
+    BASE_DIR=/opt/apb
+ENV HOME=${BASE_DIR}
+
+# Install build dependencies
+RUN dnf -y install \
+      gcc \
+      libffi-devel \
+      make \
+      net-tools \
+      openssl-devel \
+      python3-devel \
+      python3-pip \
+      python3-setuptools \
+      bind-utils \
+      openshift-clients \
+    && dnf clean all
+
+# Install pinned ansible-core (canary: latest stable release)
+# Replaces the legacy pattern of building Ansible from the 'devel' git branch
+RUN pip3 install --no-cache-dir \
+      "ansible-core>=2.15" \
+      "openshift>=0.13.2" \
+      "kubernetes>=26.1.0"
+
+# Install Ansible collections replacing legacy ansible-kubernetes-modules role
+# and openshift-restclient-python
+RUN ansible-galaxy collection install kubernetes.core community.okd \
+      -p /usr/share/ansible/collections
+
+RUN mkdir -p /usr/share/ansible/openshift \
+             /etc/ansible /opt/apb /opt/ansible \
+             ${BASE_DIR}/{etc,.kube,.ansible/tmp} \
+    && useradd -u ${USER_UID} -r -g 0 -M -d ${BASE_DIR} -b ${BASE_DIR} \
+               -s /sbin/nologin -c "apb user" ${USER_NAME} \
+    && chown -R ${USER_NAME}:0 /opt/{ansible,apb} \
+    && chmod -R g=u /opt/{ansible,apb} /etc/passwd \
+    && mkdir -p /etc/apb-secrets
+
+COPY files/etc/ansible/ansible.cfg /etc/ansible/ansible.cfg
+COPY files/etc/ansible/hosts /etc/ansible/hosts
+COPY files/usr/bin/bind-init \
+     files/usr/bin/broker-bind-creds \
+     files/usr/bin/entrypoint.sh \
+     files/usr/bin/oc-login.sh \
+     files/usr/bin/test-retrieval \
+     files/usr/bin/test-retrieval-init \
+     /usr/bin/
+
+RUN chmod 755 /usr/bin/bind-init \
+              /usr/bin/broker-bind-creds \
+              /usr/bin/entrypoint.sh \
+              /usr/bin/oc-login.sh \
+              /usr/bin/test-retrieval \
+              /usr/bin/test-retrieval-init
+
+USER ${USER_UID}
+
+ENTRYPOINT ["/usr/bin/entrypoint.sh"]

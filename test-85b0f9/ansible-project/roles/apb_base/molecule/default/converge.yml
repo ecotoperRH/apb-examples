@@ -1,0 +1,103 @@
+- name: Converge
+  hosts: all
+  gather_facts: false
+  vars:
+    molecule_prefix: /tmp/molecule_test
+    apb_user_name: apb
+    apb_base_dir: /opt/apb
+    apb_secrets_dir: /etc/apb-secrets
+    apb_bind_creds_path: /var/tmp/bind-creds
+    apb_test_result_path: /var/tmp/test-result
+  tasks:
+  - name: Create expected directory tree
+    ansible.builtin.file:
+      path: '{{ item }}'
+      state: directory
+      mode: '0755'
+    loop:
+    - '{{ molecule_prefix }}/etc/ansible'
+    - '{{ molecule_prefix }}/usr/bin'
+    - '{{ molecule_prefix }}/opt/apb'
+    - '{{ molecule_prefix }}/etc/apb-secrets'
+    - '{{ molecule_prefix }}/var/tmp'
+  - name: Deploy ansible.cfg
+    ansible.builtin.copy:
+      content: '[defaults]
+
+        roles_path        = /etc/ansible/roles:/opt/ansible/roles
+
+        collections_paths = /usr/share/ansible/collections:/opt/ansible/collections
+
+        interpreter_python = auto_silent
+
+        host_key_checking = False
+
+        stdout_callback   = yaml
+
+        '
+      dest: '{{ molecule_prefix }}/etc/ansible/ansible.cfg'
+      mode: '0644'
+  - name: Deploy hosts inventory
+    ansible.builtin.copy:
+      content: '[local]
+
+        localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+
+        '
+      dest: '{{ molecule_prefix }}/etc/ansible/hosts'
+      mode: '0644'
+  - name: Deploy entrypoint.sh
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# entrypoint.sh — Container entrypoint for APB lifecycle orchestration.\nset -x\nif [[ $@ == *\"s2i/assemble\"* ]]; then\n  echo
+        \"---> Performing S2I build... Skipping server startup\"\n  exec \"$@\"\n  exit $?\nfi\nACTION=$1\nshift\nplaybooks=/opt/apb/actions\nCREDS=\"/var/tmp/bind-creds\"\nTEST_RESULT=\"/var/tmp/test-result\"\nif
+        ! whoami &> /dev/null; then\n  if [ -w /etc/passwd ]; then\n    echo \"${USER_NAME:-apb}:x:$(id -u):0:${USER_NAME:-apb} user:${HOME}:/sbin/nologin\" >> /etc/passwd\n
+        \ fi\nfi\noc-login.sh\nset +x\nSECRETS_DIR=/etc/apb-secrets\nmounted_secrets=$(ls \"${SECRETS_DIR}\" 2>/dev/null || true)\nextra_args=\"\"\nif [[ -n \"${mounted_secrets}\"
+        ]]; then\n  echo '---' > /tmp/secrets\n  for key in ${mounted_secrets}; do\n    for file in $(ls \"${SECRETS_DIR}/${key}/..data\"); do\n      echo \"${file}:
+        $(cat \"${SECRETS_DIR}/${key}/..data/${file}\")\" >> /tmp/secrets\n    done\n  done\n  extra_args='--extra-vars no_log=true --extra-vars @/tmp/secrets'\nfi\nset
+        -x\nif [[ -e \"${playbooks}/${ACTION}.yaml\" ]]; then\n  ANSIBLE_ROLES_PATH=/etc/ansible/roles:/opt/ansible/roles \\\n    ansible-playbook -i /etc/ansible/hosts
+        \"${playbooks}/${ACTION}.yaml\" \"${@}\" ${extra_args}\nelif [[ -e \"${playbooks}/${ACTION}.yml\" ]]; then\n  ANSIBLE_ROLES_PATH=/etc/ansible/roles:/opt/ansible/roles
+        \\\n    ansible-playbook -i /etc/ansible/hosts \"${playbooks}/${ACTION}.yml\" \"${@}\" ${extra_args}\nelse\n  echo \"'${ACTION}' NOT IMPLEMENTED\"\n  exit
+        0\nfi\nEXIT_CODE=$?\nset +ex\nif [[ -f /tmp/secrets ]]; then\n  rm -f /tmp/secrets\nfi\nset -ex\nif [ -f \"${TEST_RESULT}\" ]; then\n  test-retrieval-init\nfi\nif
+        [ -f \"${CREDS}\" ]; then\n  bind-init\nfi\nexit ${EXIT_CODE}\n"
+      dest: '{{ molecule_prefix }}/usr/bin/entrypoint.sh'
+      mode: '0755'
+  - name: Deploy oc-login.sh
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# oc-login.sh — Authenticate to an OpenShift/Kubernetes cluster.\nset -euo pipefail\nif [[ -n \"${OPENSHIFT_TARGET:-}\" ]] &&
+        [[ -n \"${OPENSHIFT_TOKEN:-}\" ]]; then\n  echo \"Got OPENSHIFT token.\"\n  LOGIN_PARAMS=\"--token=${OPENSHIFT_TOKEN}\"\n  if [[ -n \"${OPENSHIFT_CA_BUNDLE:-}\"
+        ]]; then\n    LOGIN_PARAMS=\"${LOGIN_PARAMS} --certificate-authority=${OPENSHIFT_CA_BUNDLE}\"\n  else\n    echo \"WARNING: No CA bundle provided; using --insecure-skip-tls-verify=true\"
+        >&2\n    LOGIN_PARAMS=\"${LOGIN_PARAMS} --insecure-skip-tls-verify=true\"\n  fi\nelse\n  echo \"Attempting to login with a service account...\"\n  OPENSHIFT_TARGET=\"${OPENSHIFT_TARGET:-https://kubernetes.default}\"\n
+        \ SA_TOKEN_FILE=\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\n  SA_CA_FILE=\"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt\"\n  if [[ !
+        -f \"${SA_TOKEN_FILE}\" ]]; then\n    echo \"ERROR: Service account token not found at ${SA_TOKEN_FILE}\" >&2\n    exit 1\n  fi\n  LOGIN_PARAMS=\"--certificate-authority=${SA_CA_FILE}
+        --token=$(cat \"${SA_TOKEN_FILE}\")\"\nfi\noc login \"${OPENSHIFT_TARGET}\" ${LOGIN_PARAMS} || {\n  echo \"ERROR: oc login failed.\" >&2\n  exit 1\n}\n"
+      dest: '{{ molecule_prefix }}/usr/bin/oc-login.sh'
+      mode: '0755'
+  - name: Deploy bind-init
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# bind-init — Keeps the APB container alive while the broker collects bind credentials.\nRETRIES=\"${RETRIES:-150}\"\nSLEEP_INTERVAL=\"${SLEEP_INTERVAL:-2}\"\nCREDS=\"/var/tmp/bind-creds\"\ntrap
+        'exit 0' SIGTERM SIGINT\nfor ((r = 1; r <= RETRIES; r++)); do\n  if [ -f \"${CREDS}\" ]; then\n    echo \"Waiting for broker to gather the bind credentials...\"\n
+        \   sleep \"${SLEEP_INTERVAL}\"\n  else\n    echo \"Broker has received bind credentials.\"\n    echo \"Waiting for broker exec to complete...\"\n    sleep
+        5\n    exit 0\n  fi\ndone\necho \"bind-init timed out after ${RETRIES} retries.\"\nexit 1\n"
+      dest: '{{ molecule_prefix }}/usr/bin/bind-init'
+      mode: '0755'
+  - name: Deploy broker-bind-creds
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# broker-bind-creds — Emits bind credentials to stdout for the broker to collect.\n# Exit codes: 0=found, 2=not available\nCREDS=\"${CREDS:-/var/tmp/bind-creds}\"\nif
+        [ ! -s \"${CREDS}\" ]; then\n  echo \"Bind credentials not available.\"\n  exit 2\nelse\n  cat \"${CREDS}\" || exit 1\n  rm \"${CREDS}\"\n  exit 0\nfi\n"
+      dest: '{{ molecule_prefix }}/usr/bin/broker-bind-creds'
+      mode: '0755'
+  - name: Deploy test-retrieval
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# test-retrieval — Emits test results to stdout for collection.\n# Exit codes: 0=found, 2=not available\nTEST_RESULT=\"${TEST_RESULT:-/var/tmp/test-result}\"\nif
+        [ ! -s \"${TEST_RESULT}\" ]; then\n  echo \"Test results are not available.\"\n  exit 2\nelse\n  cat \"${TEST_RESULT}\" || exit 1\n  rm \"${TEST_RESULT}\"\n
+        \ exit 0\nfi\n"
+      dest: '{{ molecule_prefix }}/usr/bin/test-retrieval'
+      mode: '0755'
+  - name: Deploy test-retrieval-init
+    ansible.builtin.copy:
+      content: "#!/usr/bin/env bash\n# test-retrieval-init — Keeps the APB container alive while the user collects test results.\nRETRIES=\"${RETRIES:-150}\"\nSLEEP_INTERVAL=\"${SLEEP_INTERVAL:-2}\"\nTEST_RESULT=\"/var/tmp/test-result\"\ntrap
+        'exit 0' SIGTERM SIGINT\nfor ((r = 1; r <= RETRIES; r++)); do\n  if [ -f \"${TEST_RESULT}\" ]; then\n    echo \"Waiting for the user to gather the test results...\"\n
+        \   sleep \"${SLEEP_INTERVAL}\"\n  else\n    echo \"User has gathered the test results.\"\n    echo \"\"\n    sleep 5\n    exit 0\n  fi\ndone\necho \"test-retrieval-init
+        timed out after ${RETRIES} retries.\"\nexit 1\n"
+      dest: '{{ molecule_prefix }}/usr/bin/test-retrieval-init'
+      mode: '0755'

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# broker-bind-creds — Emits bind credentials to stdout for the broker to collect.
+# Exit codes:
+#   0 — Credentials found and emitted
+#   2 — Credentials not available
+
+CREDS="${CREDS:-/var/tmp/bind-creds}"
+
+if [ ! -s "${CREDS}" ]; then
+  echo "Bind credentials not available."
+  exit 2
+else
+  cat "${CREDS}" || exit 1
+  rm "${CREDS}"
+  exit 0
+fi

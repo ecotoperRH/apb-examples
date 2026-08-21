@@ -1,0 +1,404 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    molecule_prefix: /tmp/molecule_test
+
+  tasks:
+    # =========================================================================
+    # Directory checks
+    # =========================================================================
+    - name: Stat /etc/ansible directory
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/etc/ansible"
+      register: ansible_dir
+
+    - name: Assert /etc/ansible directory exists
+      ansible.builtin.assert:
+        that:
+          - ansible_dir.stat.exists
+          - ansible_dir.stat.isdir
+        fail_msg: "Expected directory {{ molecule_prefix }}/etc/ansible not found"
+        success_msg: "Directory {{ molecule_prefix }}/etc/ansible exists"
+
+    - name: Stat /usr/bin directory
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/usr/bin"
+      register: usr_bin_dir
+
+    - name: Assert /usr/bin directory exists
+      ansible.builtin.assert:
+        that:
+          - usr_bin_dir.stat.exists
+          - usr_bin_dir.stat.isdir
+        fail_msg: "Expected directory {{ molecule_prefix }}/usr/bin not found"
+        success_msg: "Directory {{ molecule_prefix }}/usr/bin exists"
+
+    - name: Stat APB base directory (/opt/apb)
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/opt/apb"
+      register: apb_base_dir
+
+    - name: Assert APB base directory exists
+      ansible.builtin.assert:
+        that:
+          - apb_base_dir.stat.exists
+          - apb_base_dir.stat.isdir
+        fail_msg: "Expected APB base directory {{ molecule_prefix }}/opt/apb not found"
+        success_msg: "APB base directory {{ molecule_prefix }}/opt/apb exists"
+
+    - name: Stat APB secrets directory (/etc/apb-secrets)
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/etc/apb-secrets"
+      register: apb_secrets_dir
+
+    - name: Assert APB secrets directory exists
+      ansible.builtin.assert:
+        that:
+          - apb_secrets_dir.stat.exists
+          - apb_secrets_dir.stat.isdir
+        fail_msg: "Expected APB secrets directory {{ molecule_prefix }}/etc/apb-secrets not found"
+        success_msg: "APB secrets directory {{ molecule_prefix }}/etc/apb-secrets exists"
+
+    - name: Stat /var/tmp directory (bind-creds and test-result parent)
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/var/tmp"
+      register: var_tmp_dir
+
+    - name: Assert /var/tmp directory exists
+      ansible.builtin.assert:
+        that:
+          - var_tmp_dir.stat.exists
+          - var_tmp_dir.stat.isdir
+        fail_msg: "Expected directory {{ molecule_prefix }}/var/tmp not found"
+        success_msg: "Directory {{ molecule_prefix }}/var/tmp exists"
+
+    # =========================================================================
+    # ansible.cfg — existence, size, and key content
+    # =========================================================================
+    - name: Stat ansible.cfg
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/etc/ansible/ansible.cfg"
+      register: ansible_cfg
+
+    - name: Assert ansible.cfg exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - ansible_cfg.stat.exists
+          - ansible_cfg.stat.size > 0
+        fail_msg: "ansible.cfg not found or empty at {{ molecule_prefix }}/etc/ansible/ansible.cfg"
+        success_msg: "ansible.cfg exists and is non-empty"
+
+    - name: Slurp ansible.cfg content
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/etc/ansible/ansible.cfg"
+      register: ansible_cfg_content
+
+    - name: Assert ansible.cfg contains required modern directives
+      ansible.builtin.assert:
+        that:
+          - "'roles_path' in (ansible_cfg_content.content | b64decode)"
+          - "'collections_paths' in (ansible_cfg_content.content | b64decode)"
+          - "'interpreter_python' in (ansible_cfg_content.content | b64decode)"
+          - "'auto_silent' in (ansible_cfg_content.content | b64decode)"
+          - "'host_key_checking' in (ansible_cfg_content.content | b64decode)"
+          - "'stdout_callback' in (ansible_cfg_content.content | b64decode)"
+          - "'/opt/ansible/roles' in (ansible_cfg_content.content | b64decode)"
+          - "'/opt/ansible/collections' in (ansible_cfg_content.content | b64decode)"
+        fail_msg: "ansible.cfg is missing one or more required modern directives"
+        success_msg: "ansible.cfg contains all required modern directives"
+
+    # =========================================================================
+    # hosts inventory — existence, size, and key content
+    # =========================================================================
+    - name: Stat hosts inventory
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/etc/ansible/hosts"
+      register: hosts_file
+
+    - name: Assert hosts inventory exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - hosts_file.stat.exists
+          - hosts_file.stat.size > 0
+        fail_msg: "hosts inventory not found or empty at {{ molecule_prefix }}/etc/ansible/hosts"
+        success_msg: "hosts inventory exists and is non-empty"
+
+    - name: Slurp hosts inventory content
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/etc/ansible/hosts"
+      register: hosts_content
+
+    - name: Assert hosts inventory has [local] group and python3 interpreter
+      ansible.builtin.assert:
+        that:
+          - "'[local]' in (hosts_content.content | b64decode)"
+          - "'localhost' in (hosts_content.content | b64decode)"
+          - "'ansible_connection=local' in (hosts_content.content | b64decode)"
+          - "'ansible_python_interpreter=/usr/bin/python3' in (hosts_content.content | b64decode)"
+        fail_msg: "hosts inventory is missing required [local] group or python3 interpreter directive"
+        success_msg: "hosts inventory contains [local] group with correct directives"
+
+    # =========================================================================
+    # Runtime scripts — existence, non-empty, and executable bit
+    # =========================================================================
+    - name: Stat all APB runtime scripts
+      ansible.builtin.stat:
+        path: "{{ molecule_prefix }}/usr/bin/{{ item }}"
+      register: script_stats
+      loop:
+        - bind-init
+        - broker-bind-creds
+        - entrypoint.sh
+        - oc-login.sh
+        - test-retrieval
+        - test-retrieval-init
+
+    - name: Assert all APB runtime scripts exist, are non-empty, and are executable
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.size > 0
+          - item.stat.executable
+        fail_msg: "Script {{ item.item }} is missing, empty, or not executable at {{ molecule_prefix }}/usr/bin/{{ item.item }}"
+        success_msg: "Script {{ item.item }} exists, is non-empty, and is executable"
+      loop: "{{ script_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # =========================================================================
+    # entrypoint.sh — key content checks
+    # =========================================================================
+    - name: Slurp entrypoint.sh
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/entrypoint.sh"
+      register: entrypoint_content
+
+    - name: Assert entrypoint.sh has correct shebang and key logic
+      ansible.builtin.assert:
+        that:
+          - "(entrypoint_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          - "(entrypoint_content.content | b64decode) is search('s2i/assemble')"
+          - "(entrypoint_content.content | b64decode) is search('oc-login.sh')"
+          - "(entrypoint_content.content | b64decode) is search('-i /etc/ansible/hosts')"
+          - "(entrypoint_content.content | b64decode) is search('ansible-playbook')"
+          - "(entrypoint_content.content | b64decode) is search('mounted_secrets')"
+          - "(entrypoint_content.content | b64decode) is search('bind-init')"
+          - "(entrypoint_content.content | b64decode) is search('test-retrieval-init')"
+        fail_msg: "entrypoint.sh is missing required logic sections"
+        success_msg: "entrypoint.sh contains all required logic sections"
+
+    - name: Assert entrypoint.sh uses fixed logic (no old bug patterns)
+      ansible.builtin.assert:
+        that:
+          # Must use -n (not ! -e) for mounted_secrets check — bug fix
+          - "(entrypoint_content.content | b64decode) is search('\\[\\[ -n .\\${mounted_secrets}')"
+          # Must pass explicit inventory flag
+          - "(entrypoint_content.content | b64decode) is search('-i /etc/ansible/hosts')"
+          # Must guard rm /tmp/secrets with -f check
+          - "(entrypoint_content.content | b64decode) is search('\\[\\[ -f /tmp/secrets \\]\\]')"
+        fail_msg: "entrypoint.sh still contains legacy bug patterns"
+        success_msg: "entrypoint.sh uses corrected logic patterns"
+
+    # =========================================================================
+    # oc-login.sh — key content checks
+    # =========================================================================
+    - name: Slurp oc-login.sh
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/oc-login.sh"
+      register: oc_login_content
+
+    - name: Assert oc-login.sh has correct shebang and modern patterns
+      ansible.builtin.assert:
+        that:
+          - "(oc_login_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          - "(oc_login_content.content | b64decode) is search('set -euo pipefail')"
+          # Must use [[ -n ]] not [[ ! -z ]]
+          - "(oc_login_content.content | b64decode) is search('\\[\\[ -n')"
+          - "(oc_login_content.content | b64decode) is not search('\\[\\[ ! -z')"
+          - "(oc_login_content.content | b64decode) is search('OPENSHIFT_TARGET')"
+          - "(oc_login_content.content | b64decode) is search('OPENSHIFT_TOKEN')"
+          - "(oc_login_content.content | b64decode) is search('OPENSHIFT_CA_BUNDLE')"
+          - "(oc_login_content.content | b64decode) is search('oc login')"
+          # Must have error handling on oc login failure
+          - "(oc_login_content.content | b64decode) is search('oc login failed')"
+        fail_msg: "oc-login.sh is missing required modern patterns or still has legacy anti-patterns"
+        success_msg: "oc-login.sh uses correct modern patterns"
+
+    # =========================================================================
+    # bind-init — key content checks
+    # =========================================================================
+    - name: Slurp bind-init
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/bind-init"
+      register: bind_init_content
+
+    - name: Assert bind-init has modernized loop and signal handling
+      ansible.builtin.assert:
+        that:
+          - "(bind_init_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          # Must use bash arithmetic loop, not $(seq ...)
+          - "(bind_init_content.content | b64decode) is search('for \\(\\(r')"
+          - "(bind_init_content.content | b64decode) is not search('\\$\\(seq')"
+          # Must have SIGTERM/SIGINT trap
+          - "(bind_init_content.content | b64decode) is search('trap.*SIGTERM')"
+          # Must support configurable RETRIES and SLEEP_INTERVAL
+          - "(bind_init_content.content | b64decode) is search('RETRIES')"
+          - "(bind_init_content.content | b64decode) is search('SLEEP_INTERVAL')"
+        fail_msg: "bind-init is missing modernized loop, signal handling, or configurable env vars"
+        success_msg: "bind-init uses modernized bash arithmetic loop and signal handling"
+
+    # =========================================================================
+    # broker-bind-creds — key content checks
+    # =========================================================================
+    - name: Slurp broker-bind-creds
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/broker-bind-creds"
+      register: broker_bind_creds_content
+
+    - name: Assert broker-bind-creds has configurable CREDS path and correct exit codes
+      ansible.builtin.assert:
+        that:
+          - "(broker_bind_creds_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          - "(broker_bind_creds_content.content | b64decode) is search('CREDS.*:-/var/tmp/bind-creds')"
+          - "(broker_bind_creds_content.content | b64decode) is search('exit 2')"
+          - "(broker_bind_creds_content.content | b64decode) is search('exit 0')"
+        fail_msg: "broker-bind-creds is missing configurable CREDS path or correct exit codes"
+        success_msg: "broker-bind-creds has configurable CREDS path and correct exit codes"
+
+    # =========================================================================
+    # test-retrieval — key content checks (including bug fix verification)
+    # =========================================================================
+    - name: Slurp test-retrieval
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/test-retrieval"
+      register: test_retrieval_content
+
+    - name: Assert test-retrieval has configurable TEST_RESULT path and no rm $CREDS bug
+      ansible.builtin.assert:
+        that:
+          - "(test_retrieval_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          - "(test_retrieval_content.content | b64decode) is search('TEST_RESULT.*:-/var/tmp/test-result')"
+          - "(test_retrieval_content.content | b64decode) is search('exit 2')"
+          # Bug fix: must remove TEST_RESULT, not CREDS
+          - "(test_retrieval_content.content | b64decode) is search('rm.*TEST_RESULT')"
+          # Must NOT contain the old copy-paste bug of removing $CREDS
+          - "(test_retrieval_content.content | b64decode) is not search('rm \\$CREDS')"
+        fail_msg: "test-retrieval is missing TEST_RESULT path or still contains rm $CREDS bug"
+        success_msg: "test-retrieval uses correct TEST_RESULT path and rm $TEST_RESULT (bug fixed)"
+
+    # =========================================================================
+    # test-retrieval-init — key content checks (including copy-paste bug fixes)
+    # =========================================================================
+    - name: Slurp test-retrieval-init
+      ansible.builtin.slurp:
+        src: "{{ molecule_prefix }}/usr/bin/test-retrieval-init"
+      register: test_retrieval_init_content
+
+    - name: Assert test-retrieval-init has fixed typos and modernized patterns
+      ansible.builtin.assert:
+        that:
+          - "(test_retrieval_init_content.content | b64decode) is search('#!/usr/bin/env bash')"
+          # Typo fix: "results" not "resutls"
+          - "(test_retrieval_init_content.content | b64decode) is search('test results')"
+          - "(test_retrieval_init_content.content | b64decode) is not search('resutls')"
+          # Copy-paste fix: must say "test-retrieval-init timed out", not "bind-init timed out"
+          - "(test_retrieval_init_content.content | b64decode) is search('test-retrieval-init timed out')"
+          - "(test_retrieval_init_content.content | b64decode) is not search('bind-init timed out')"
+          # Must use bash arithmetic loop
+          - "(test_retrieval_init_content.content | b64decode) is search('for \\(\\(r')"
+          - "(test_retrieval_init_content.content | b64decode) is not search('\\$\\(seq')"
+          # Must have SIGTERM/SIGINT trap
+          - "(test_retrieval_init_content.content | b64decode) is search('trap.*SIGTERM')"
+        fail_msg: "test-retrieval-init still contains typos, copy-paste errors, or legacy loop patterns"
+        success_msg: "test-retrieval-init has all typos and copy-paste errors fixed"
+
+    # =========================================================================
+    # Service checks — tagged molecule-notest (cannot run in container EE)
+    # =========================================================================
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+      tags: molecule-notest
+
+    - name: Assert no APB-specific system services are required (container image role)
+      ansible.builtin.assert:
+        that:
+          - true  # apb-base manages no systemd services; this is a container image role
+        success_msg: "No systemd services to verify for apb-base (container image role)"
+      tags: molecule-notest
+
+    # =========================================================================
+    # Container / cluster runtime checks — tagged molecule-notest
+    # =========================================================================
+    - name: Check oc client binary is available
+      ansible.builtin.command:
+        cmd: oc version --client
+      register: oc_version
+      changed_when: false
+      failed_when: false
+      tags: molecule-notest
+
+    - name: Assert oc client is available
+      ansible.builtin.assert:
+        that:
+          - oc_version.rc == 0
+        fail_msg: "oc client binary not found or not functional"
+        success_msg: "oc client is available: {{ oc_version.stdout | default('') }}"
+      tags: molecule-notest
+
+    - name: Check Ansible version inside container
+      ansible.builtin.command:
+        cmd: ansible --version
+      register: ansible_version_check
+      changed_when: false
+      failed_when: false
+      tags: molecule-notest
+
+    - name: Assert Ansible is available
+      ansible.builtin.assert:
+        that:
+          - ansible_version_check.rc == 0
+        fail_msg: "ansible binary not found or not functional"
+        success_msg: "Ansible is available: {{ ansible_version_check.stdout_lines[0] | default('') }}"
+      tags: molecule-notest
+
+    - name: Check kubernetes.core collection is installed
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection list
+      register: collection_list
+      changed_when: false
+      failed_when: false
+      tags: molecule-notest
+
+    - name: Assert kubernetes.core collection is installed
+      ansible.builtin.assert:
+        that:
+          - "'kubernetes.core' in collection_list.stdout"
+        fail_msg: "kubernetes.core collection is not installed"
+        success_msg: "kubernetes.core collection is installed"
+      tags: molecule-notest
+
+    - name: Assert community.okd collection is installed
+      ansible.builtin.assert:
+        that:
+          - "'community.okd' in collection_list.stdout"
+        fail_msg: "community.okd collection is not installed"
+        success_msg: "community.okd collection is installed"
+      tags: molecule-notest
+
+    - name: Check Python 3 openshift library
+      ansible.builtin.command:
+        cmd: python3 -c "import openshift; print(openshift.__version__)"
+      register: openshift_py
+      changed_when: false
+      failed_when: false
+      tags: molecule-notest
+
+    - name: Assert Python 3 openshift library is available
+      ansible.builtin.assert:
+        that:
+          - openshift_py.rc == 0
+        fail_msg: "Python 3 openshift library is not installed"
+        success_msg: "Python 3 openshift library is available: {{ openshift_py.stdout | default('') }}"
+      tags: molecule-notest

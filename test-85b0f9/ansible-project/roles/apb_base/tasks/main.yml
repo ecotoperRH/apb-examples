@@ -1,0 +1,81 @@
+---
+- name: Ensure APB system user exists
+  ansible.builtin.user:
+    name: "{{ apb_user_name }}"
+    uid: "{{ apb_user_uid }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+    comment: APB runtime user
+  become: true
+- name: Ensure Ansible configuration directory exists
+  ansible.builtin.file:
+    path: /etc/ansible
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+- name: Deploy Ansible configuration file
+  ansible.builtin.copy:
+    src: etc/ansible/ansible.cfg
+    dest: /etc/ansible/ansible.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+- name: Deploy Ansible static inventory
+  ansible.builtin.copy:
+    src: etc/ansible/hosts
+    dest: /etc/ansible/hosts
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+- name: Ensure APB runtime scripts are deployed
+  ansible.builtin.copy:
+    src: usr/bin/{{ item }}
+    dest: /usr/bin/{{ item }}
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - bind-init
+    - broker-bind-creds
+    - entrypoint.sh
+    - oc-login.sh
+    - test-retrieval
+    - test-retrieval-init
+- name: Ensure APB base directory exists
+  ansible.builtin.file:
+    path: "{{ apb_base_dir }}"
+    state: directory
+    owner: "{{ apb_user_name }}"
+    group: "0"
+    mode: "0775"
+  become: true
+- name: Ensure APB secrets directory exists
+  ansible.builtin.file:
+    path: "{{ apb_secrets_dir }}"
+    state: directory
+    owner: root
+    group: "0"
+    mode: "0770"
+  become: true
+- name: Ensure APB bind credentials directory exists
+  ansible.builtin.file:
+    path: "{{ apb_bind_creds_path | dirname }}"
+    state: directory
+    owner: "{{ apb_user_name }}"
+    group: "0"
+    mode: "0775"
+  become: true
+- name: Ensure APB test result directory exists
+  ansible.builtin.file:
+    path: "{{ apb_test_result_path | dirname }}"
+    state: directory
+    owner: "{{ apb_user_name }}"
+    group: "0"
+    mode: "0775"
+  become: true
