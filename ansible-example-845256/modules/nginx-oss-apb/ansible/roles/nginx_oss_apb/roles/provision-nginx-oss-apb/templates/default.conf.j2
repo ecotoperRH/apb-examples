@@ -1,0 +1,32 @@
+{% if lb | bool %}
+upstream upstr {
+{% if lb_method | default('round_robin') != 'round_robin' %}
+    {{ lb_method | default('round_robin') }}{{ ' $request_uri' if lb_method == 'hash' else '' }};
+{% endif %}
+{% set server_list = (server | default('')).split(', ') %}
+{% for ip in server_list %}
+    server {{ ip }};
+{% endfor %}
+}
+{% endif %}
+
+server {
+    listen 8080;
+    server_name localhost;
+
+    location / {
+{% if lb | bool %}
+        proxy_pass http://upstr;
+{% else %}
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+{% endif %}
+    }
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}

@@ -1,0 +1,8 @@
+- name: NGINX OSS APB playbook to deprovision the application
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  collections:
+  - kubernetes.core
+  roles:
+  - role: deprovision-nginx-oss-apb

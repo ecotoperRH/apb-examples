@@ -1,0 +1,11 @@
+argument_specs:
+  main:
+    short_description: Deprovision NGINX OSS from Kubernetes
+    description:
+    - Removes a previously provisioned NGINX OSS instance from a Kubernetes cluster.
+    - Deletes the Ingress, Service, Deployment, and ConfigMap resources in reverse order.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Kubernetes namespace from which to remove resources.

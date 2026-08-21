@@ -1,0 +1,171 @@
+- name: Converge
+  hosts: all
+  gather_facts: false
+  vars:
+    lb: false
+    server: ''
+    lb_method: round_robin
+    namespace: test-nginx
+    test_root: /tmp/molecule_test
+  tasks:
+  - name: Create role directory structure
+    ansible.builtin.file:
+      path: '{{ item }}'
+      state: directory
+      mode: '0755'
+    loop:
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/tasks'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/templates'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/defaults'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/meta'
+    - '{{ test_root }}/roles/deprovision-nginx-oss-apb/tasks'
+    - '{{ test_root }}/roles/deprovision-nginx-oss-apb/meta'
+    - '{{ test_root }}/playbooks'
+    - '{{ test_root }}/collections'
+    - '{{ test_root }}/meta'
+    - '{{ test_root }}/rendered'
+  - name: Create provision tasks/main.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/provision-nginx-oss-apb/tasks/main.yml'
+      mode: '0644'
+      content: "- name: Create NGINX OSS APB ConfigMap kubernetes.core.k8s: state: present definition: apiVersion: v1 kind: ConfigMap\n     metadata: name: nginx-conf
+        namespace: '{{ namespace }}' data: nginx-conf: '{{ lookup(''ansible.builtin.template'', ''default.conf.j2'') }}' - name: Create NGINX OSS APB deployment kubernetes.core.k8s:
+        state: present definition: apiVersion: apps/v1\n     kind: Deployment metadata: name: nginx-oss-apb namespace: '{{ namespace }}' labels: app: '{{ namespace
+        }}' service: nginx-oss-apb spec: replicas: 1 selector: matchLabels: app: '{{ namespace }}' service: nginx-oss-apb template: metadata: labels: app: '{{ namespace
+        }}' service: nginx-oss-apb spec:\n           restartPolicy: Always containers: - name: nginx-oss-apb image: nginx:latest ports:\n                 - containerPort:
+        8080 protocol: TCP volumeMounts: - mountPath: /etc/nginx/conf.d\n                   name: configuration volumes: - name: configuration configMap: name: nginx-conf\n
+        \                items: - key: nginx-conf path: default.conf - name: Create NGINX OSS APB service kubernetes.core.k8s:\n   state: present definition: apiVersion:
+        v1 kind: Service metadata: name: nginx-oss-apb namespace: '{{ namespace }}' labels: app: '{{ namespace }}' service: nginx-oss-apb spec: selector: app: '{{
+        namespace }}'\n       ports: - name: web port: 80 targetPort: 8080 - name: Create NGINX OSS APB ingress kubernetes.core.k8s:\n   state: present definition:
+        apiVersion: networking.k8s.io/v1 kind: Ingress metadata: name: nginx-oss-apb namespace: '{{ namespace }}' labels: app: '{{ namespace }}' service: nginx-oss-apb
+        spec: rules: - http: paths:\n               - path: / pathType: Prefix backend: service: name: nginx-oss-apb\n                     port: name: web "
+  - name: Create deprovision tasks/main.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/deprovision-nginx-oss-apb/tasks/main.yml'
+      mode: '0644'
+      content: "- name: Delete NGINX OSS APB ingress kubernetes.core.k8s: state: absent api_version: networking.k8s.io/v1 kind: Ingress name: nginx-oss-apb namespace:
+        '{{ namespace }}' - name: Delete NGINX OSS APB service kubernetes.core.k8s: state: absent api_version: v1 kind: Service name: nginx-oss-apb namespace: '{{
+        namespace }}' - name: Delete NGINX OSS APB deployment kubernetes.core.k8s: state: absent api_version: apps/v1 kind: Deployment name: nginx-oss-apb namespace:
+        '{{ namespace }}' - name: Delete NGINX OSS APB configmap kubernetes.core.k8s:\n   state: absent api_version: v1 kind: ConfigMap name: nginx-conf namespace:
+        '{{ namespace }}' "
+  - name: Create provision defaults/main.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/provision-nginx-oss-apb/defaults/main.yml'
+      mode: '0644'
+      content: 'lb: false
+
+        server: ''''
+
+        lb_method: round_robin
+
+        '
+  - name: Create provision meta/argument_specs.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/provision-nginx-oss-apb/meta/argument_specs.yml'
+      mode: '0644'
+      content: "argument_specs: main: short_description: Provision NGINX OSS on Kubernetes description: - Deploys a single NGINX OSS instance to a Kubernetes cluster
+        via Deployment, Service, Ingress, and ConfigMap resources. options: namespace: type: str required: true description: Kubernetes namespace to deploy resources
+        into. lb: type: bool required: false default: false\n       description: Enable NGINX upstream load balancing. server: type: str required: false default:
+        '' description: > Comma-separated list of upstream backend servers (with port 8080). Required when lb is true. lb_method: type: str\n       required: false
+        default: round_robin description: > NGINX load balancing algorithm. Valid choices are round_robin, least_conn, ip_hash, hash. "
+  - name: Create deprovision meta/argument_specs.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/deprovision-nginx-oss-apb/meta/argument_specs.yml'
+      mode: '0644'
+      content: "argument_specs: main: short_description: Deprovision NGINX OSS from Kubernetes description: - Removes a previously provisioned NGINX OSS instance
+        from a Kubernetes cluster. - Deletes the Ingress, Service, Deployment, and ConfigMap resources in reverse order. options:\n     namespace: type: str required:
+        true description: Kubernetes namespace from which to remove resources. "
+  - name: Create provision templates/default.conf.j2
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      mode: '0644'
+      content: "{% raw %}{% if lb | bool %} upstream upstr { {% if lb_method | default('round_robin') != 'round_robin' %} {{ lb_method | default('round_robin') }}{{
+        ' $request_uri' if lb_method == 'hash' else '' }}; {% endif %} {% set server_list = (server | default('')).split(', ') %} {% for ip in server_list %} server
+        {{ ip }}; {% endfor %} } {% endif %}\nserver { listen 8080; server_name localhost;\nlocation / { {% if lb | bool %}\n       proxy_pass http://upstr; {% else
+        %} root /usr/share/nginx/html; index index.html index.htm; {% endif %} }\nerror_page 500 502 503 504 /50x.html; location = /50x.html { root /usr/share/nginx/html;
+        } } {% endraw %} "
+  - name: Create collections/requirements.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/collections/requirements.yml'
+      mode: '0644'
+      content: 'collections: - name: kubernetes.core version: ">=2.4.0" '
+  - name: Create execution-environment.yml
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/execution-environment.yml'
+      mode: '0644'
+      content: 'version: 1 build_arg_defaults: EE_BASE_IMAGE: ''quay.io/ansible/ansible-runner:latest'' ansible_config: ''ansible.cfg'' dependencies: galaxy: collections/requirements.yml
+        python: requirements.txt system: bindep.txt '
+  - name: Create requirements.txt
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/requirements.txt'
+      mode: '0644'
+      content: 'kubernetes>=12.0.0
+
+        openshift>=0.13.1
+
+        PyYAML>=3.11
+
+        '
+  - name: Create bindep.txt
+    ansible.builtin.copy:
+      dest: '{{ test_root }}/bindep.txt'
+      mode: '0644'
+      content: 'python3-devel [platform:rpm]
+
+        gcc [platform:rpm]
+
+        '
+  - name: Render default.conf.j2 with lb=false
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-false.conf'
+      mode: '0644'
+    vars:
+      lb: false
+      server: ''
+      lb_method: round_robin
+  - name: Render default.conf.j2 with lb=true and least_conn
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-true-least-conn.conf'
+      mode: '0644'
+    vars:
+      lb: true
+      server: 10.0.0.1:8080, 10.0.0.2:8080
+      lb_method: least_conn
+  - name: Render default.conf.j2 with lb=true and hash
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-true-hash.conf'
+      mode: '0644'
+    vars:
+      lb: true
+      server: 10.0.0.1:8080, 10.0.0.2:8080
+      lb_method: hash
+  - name: Render default.conf.j2 with lb=true and ip_hash
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-true-ip-hash.conf'
+      mode: '0644'
+    vars:
+      lb: true
+      server: 10.0.0.1:8080, 10.0.0.2:8080
+      lb_method: ip_hash
+  - name: Render default.conf.j2 with lb=true and round_robin
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-true-round-robin.conf'
+      mode: '0644'
+    vars:
+      lb: true
+      server: 10.0.0.1:8080, 10.0.0.2:8080
+      lb_method: round_robin
+  - name: Render default.conf.j2 with lb as string false (APB survey guard)
+    ansible.builtin.template:
+      src: '{{ playbook_dir }}/../../../../roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+      dest: '{{ test_root }}/rendered/default-lb-string-false.conf'
+      mode: '0644'
+    vars:
+      lb: 'false'
+      server: ''
+      lb_method: round_robin

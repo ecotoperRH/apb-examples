@@ -1,0 +1,94 @@
+- name: Create NGINX OSS APB ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nginx-conf
+        namespace: '{{ namespace }}'
+      data:
+        nginx-conf: '{{ lookup(''ansible.builtin.template'', ''default.conf.j2'') }}'
+- name: Create NGINX OSS APB deployment
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nginx-oss-apb
+        namespace: '{{ namespace }}'
+        labels:
+          app: '{{ namespace }}'
+          service: nginx-oss-apb
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: '{{ namespace }}'
+            service: nginx-oss-apb
+        template:
+          metadata:
+            labels:
+              app: '{{ namespace }}'
+              service: nginx-oss-apb
+          spec:
+            restartPolicy: Always
+            containers:
+            - name: nginx-oss-apb
+              image: nginx:latest
+              ports:
+              - containerPort: 8080
+                protocol: TCP
+              volumeMounts:
+              - mountPath: /etc/nginx/conf.d
+                name: configuration
+            volumes:
+            - name: configuration
+              configMap:
+                name: nginx-conf
+                items:
+                - key: nginx-conf
+                  path: default.conf
+- name: Create NGINX OSS APB service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: nginx-oss-apb
+        namespace: '{{ namespace }}'
+        labels:
+          app: '{{ namespace }}'
+          service: nginx-oss-apb
+      spec:
+        selector:
+          app: '{{ namespace }}'
+        ports:
+        - name: web
+          port: 80
+          targetPort: 8080
+- name: Create NGINX OSS APB ingress
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: nginx-oss-apb
+        namespace: '{{ namespace }}'
+        labels:
+          app: '{{ namespace }}'
+          service: nginx-oss-apb
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: nginx-oss-apb
+                  port:
+                    name: web

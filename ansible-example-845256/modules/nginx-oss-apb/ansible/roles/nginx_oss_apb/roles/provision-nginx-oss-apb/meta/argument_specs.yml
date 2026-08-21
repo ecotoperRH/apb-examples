@@ -1,0 +1,26 @@
+argument_specs:
+  main:
+    short_description: Provision NGINX OSS on Kubernetes
+    description:
+    - Deploys a single NGINX OSS instance to a Kubernetes cluster via Deployment, Service, Ingress, and ConfigMap resources.
+    - Supports optional upstream load balancing with configurable algorithm and server list.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Kubernetes namespace to deploy resources into.
+      lb:
+        type: bool
+        required: false
+        default: false
+        description: Enable NGINX upstream load balancing.
+      server:
+        type: str
+        required: false
+        default: ''
+        description: 'Comma-separated list of upstream backend servers (with port 8080). Required when lb is true. Example: "10.0.0.1:8080, 10.0.0.2:8080".'
+      lb_method:
+        type: str
+        required: false
+        default: round_robin
+        description: NGINX load balancing algorithm. Valid choices are round_robin, least_conn, ip_hash, hash.

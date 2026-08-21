@@ -1,0 +1,165 @@
+{
+  "module_name": "nginx_oss_apb",
+  "items": [
+    {
+      "category": "recipes",
+      "source_path": "nginx-oss-apb/playbooks/deprovision.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/playbooks/deprovision.yml",
+      "status": "complete",
+      "description": "Deprovision playbook entry point \u2014 remove ansible.kubernetes-modules role dependency, modernize to use kubernetes.core collection, remove playbook_debug flag",
+      "notes": "Modernized: removed ansible.kubernetes-modules dependency, using kubernetes.core collection"
+    },
+    {
+      "category": "recipes",
+      "source_path": "nginx-oss-apb/playbooks/provision.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/playbooks/provision.yml",
+      "status": "complete",
+      "description": "Provision playbook entry point \u2014 remove ansible.kubernetes-modules role dependency, modernize to use kubernetes.core collection, remove playbook_debug flag",
+      "notes": "Modernized: removed ansible.kubernetes-modules dependency, using kubernetes.core collection"
+    },
+    {
+      "category": "recipes",
+      "source_path": "nginx-oss-apb/roles/provision-nginx-oss-apb/tasks/main.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/provision-nginx-oss-apb/tasks/main.yml",
+      "status": "complete",
+      "description": "Provision role tasks \u2014 replace tombstoned openshift_v1_deployment_config, k8s_v1_service, openshift_v1_route with kubernetes.core.k8s using full definition: manifests; replace shell oc create configmap with kubernetes.core.k8s ConfigMap using lookup(ansible.builtin.template); add FQCN and mode: to template task",
+      "notes": "Modernized: replaced tombstoned openshift_v1_deployment_config, k8s_v1_service, openshift_v1_route with kubernetes.core.k8s; replaced shell oc create configmap with inline ConfigMap using template lookup"
+    },
+    {
+      "category": "recipes",
+      "source_path": "nginx-oss-apb/roles/deprovision-nginx-oss-apb/tasks/main.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/deprovision-nginx-oss-apb/tasks/main.yml",
+      "status": "complete",
+      "description": "Deprovision role tasks \u2014 replace tombstoned openshift_v1_route, k8s_v1_service, openshift_v1_deployment_config with kubernetes.core.k8s state: absent using full definition: manifests",
+      "notes": "Modernized: replaced tombstoned openshift_v1_route, k8s_v1_service, openshift_v1_deployment_config with kubernetes.core.k8s; added ConfigMap deletion"
+    },
+    {
+      "category": "templates",
+      "source_path": "nginx-oss-apb/roles/provision-nginx-oss-apb/templates/default.conf.j2",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/provision-nginx-oss-apb/templates/default.conf.j2",
+      "status": "complete",
+      "description": "NGINX default.conf Jinja2 template \u2014 fix bare boolean test (lb | bool), rename reserved variable list to server_list, add default guards for server and lb_method variables",
+      "notes": "Modernized: added lb | bool filter, renamed list to server_list, added default guards for server and lb_method"
+    },
+    {
+      "category": "attributes",
+      "source_path": "nginx-oss-apb/apb.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/provision-nginx-oss-apb/defaults/main.yml",
+      "status": "complete",
+      "description": "Provision role defaults \u2014 create defaults/main.yml with namespace, lb (default: false), server (default: ''), lb_method (default: round_robin) variables migrated from apb.yml parameters section",
+      "notes": "Converted from apb.yml parameters section; namespace is required (no default), lb/server/lb_method have defaults"
+    },
+    {
+      "category": "structure",
+      "source_path": "nginx-oss-apb/apb.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/provision-nginx-oss-apb/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Provision role argument specs \u2014 migrate APB parameter schema from apb.yml to Ansible argument_specs.yml; define namespace (required), lb (bool, default: false), server (str, default: ''), lb_method (enum, default: round_robin)",
+      "notes": "Converted from apb.yml parameters section to Ansible argument_specs format"
+    },
+    {
+      "category": "structure",
+      "source_path": "nginx-oss-apb/apb.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/deprovision-nginx-oss-apb/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Deprovision role argument specs \u2014 define namespace (required) variable for the deprovision role",
+      "notes": "Converted from apb.yml parameters section; deprovision only requires namespace"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/deprovision-nginx-oss-apb/meta/main.yml",
+      "status": "complete",
+      "description": "Deprovision role metadata \u2014 generate meta/main.yml for deprovision-nginx-oss-apb role (no source metadata.rb exists; APB packaging is EOL)",
+      "notes": "Created meta/main.yml for deprovision sub-role with x2a namespace"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/roles/provision-nginx-oss-apb/meta/main.yml",
+      "status": "complete",
+      "description": "Provision role metadata \u2014 generate meta/main.yml for provision-nginx-oss-apb role (no source metadata.rb exists; APB packaging is EOL)",
+      "notes": "Created meta/main.yml for provision sub-role with x2a namespace"
+    },
+    {
+      "category": "files",
+      "source_path": "nginx-oss-apb/Dockerfile",
+      "target_path": "ansible/roles/nginx_oss_apb/bindep.txt",
+      "status": "complete",
+      "description": "System-level bindep dependencies \u2014 python3-devel and gcc for RPM platforms; required to build kubernetes/openshift Python clients in EE",
+      "notes": "Converted from Dockerfile system dependencies to bindep.txt format"
+    },
+    {
+      "category": "files",
+      "source_path": "nginx-oss-apb/Dockerfile",
+      "target_path": "ansible/roles/nginx_oss_apb/requirements.txt",
+      "status": "complete",
+      "description": "Python requirements file \u2014 kubernetes>=12.0.0, openshift>=0.13.1, PyYAML>=3.11; replaces Python deps previously bundled in APB Docker image",
+      "notes": "Converted from Dockerfile Python dependencies to requirements.txt format"
+    },
+    {
+      "category": "files",
+      "source_path": "nginx-oss-apb/Dockerfile",
+      "target_path": "ansible/roles/nginx_oss_apb/execution-environment.yml",
+      "status": "complete",
+      "description": "Execution Environment definition \u2014 replace legacy APB Dockerfile (ansibleplaybookbundle/apb-base) with modern EE definition referencing collections/requirements.yml, requirements.txt, and bindep.txt",
+      "notes": "Converted from APB Dockerfile to modern Ansible Execution Environment definition"
+    },
+    {
+      "category": "dependencies",
+      "source_path": "nginx-oss-apb/apb.yml",
+      "target_path": "ansible/roles/nginx_oss_apb/collections/requirements.yml",
+      "status": "complete",
+      "description": "Collections requirements file \u2014 kubernetes.core >=2.4.0 to replace all tombstoned modules (openshift_v1_deployment_config, k8s_v1_service, openshift_v1_route); NOTE: not yet available in AAP Private Hub \u2014 must be published before migration tasks can run",
+      "notes": "Converted from apb.yml dependencies; kubernetes.core replaces all legacy ansible.kubernetes-modules functionality"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver with local connection for AAP; covers both lb:false and lb:true scenarios for NGINX OSS on OpenShift",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 creates expected filesystem state under /tmp/molecule_test/; exercises provision role with lb:false and lb:true scenarios; sets namespace, server, lb_method variables",
+      "notes": "Creates /tmp/molecule_test/ directory scaffold with all role structural files (tasks, defaults, templates, meta, collections, EE files). Renders default.conf.j2 for 6 scenarios: lb=false, lb=true/least_conn, lb=true/hash, lb=true/ip_hash, lb=true/round_robin, lb=string-false (APB survey guard)."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook \u2014 delegated driver requires explicit create/destroy stubs",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook \u2014 delegated driver requires explicit create/destroy stubs",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /tmp/molecule_test/ paths; validates rendered NGINX config for lb:false and lb:true; confirms lb|bool filter, server_list rename, lb_method default guard are applied",
+      "notes": "5 sections: (1) structural file existence checks via stat+assert; (2) file content checks via slurp+assert (no legacy modules, kubernetes.core.k8s present, template lookup used, defaults correct, argument_specs has required:true for namespace, collections/requirements.yml references kubernetes.core, requirements.txt has kubernetes/openshift/PyYAML, EE yml uses modern format); (3) rendered config assertions for all 6 template scenarios; (4) template source modernization checks (lb|bool, server_list, default guards); (5) cluster/service checks tagged molecule-notest."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/nginx_oss_apb/meta/main.yml",
+      "status": "complete",
+      "description": "Created standard meta/main.yml",
+      "notes": ""
+    }
+  ]
+}

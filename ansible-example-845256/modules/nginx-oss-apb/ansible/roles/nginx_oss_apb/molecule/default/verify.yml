@@ -1,0 +1,315 @@
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    test_root: /tmp/molecule_test
+  tasks:
+  - name: Stat all expected role files
+    ansible.builtin.stat:
+      path: '{{ item }}'
+    register: role_files_stat
+    loop:
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/tasks/main.yml'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/defaults/main.yml'
+    - '{{ test_root }}/roles/provision-nginx-oss-apb/meta/argument_specs.yml'
+    - '{{ test_root }}/roles/deprovision-nginx-oss-apb/tasks/main.yml'
+    - '{{ test_root }}/roles/deprovision-nginx-oss-apb/meta/argument_specs.yml'
+    - '{{ test_root }}/collections/requirements.yml'
+    - '{{ test_root }}/execution-environment.yml'
+    - '{{ test_root }}/requirements.txt'
+    - '{{ test_root }}/bindep.txt'
+  - name: Assert all expected role files exist
+    ansible.builtin.assert:
+      that: item.stat.exists
+      fail_msg: 'Expected file is missing: {{ item.item }}'
+      success_msg: 'File exists: {{ item.item }}'
+    loop: '{{ role_files_stat.results }}'
+    loop_control:
+      label: '{{ item.item }}'
+  - name: Slurp provision tasks/main.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/provision-nginx-oss-apb/tasks/main.yml'
+    register: provision_tasks
+  - name: Assert provision tasks use kubernetes.core.k8s
+    ansible.builtin.assert:
+      that: '''kubernetes.core.k8s'' in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must use kubernetes.core.k8s
+  - name: Assert provision tasks use apps/v1 Deployment (not OpenShift DeploymentConfig)
+    ansible.builtin.assert:
+      that: '''apps/v1'' in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must use apps/v1 Deployment, not OpenShift DeploymentConfig
+  - name: Assert provision tasks do NOT reference DeploymentConfig
+    ansible.builtin.assert:
+      that: '''DeploymentConfig'' not in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must not reference legacy DeploymentConfig
+  - name: Assert provision tasks use networking.k8s.io/v1 Ingress (not OpenShift Route)
+    ansible.builtin.assert:
+      that: '''networking.k8s.io/v1'' in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must use networking.k8s.io/v1 Ingress, not OpenShift Route
+  - name: Assert provision tasks do NOT reference Route
+    ansible.builtin.assert:
+      that: '''route.openshift.io'' not in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must not reference legacy OpenShift Route
+  - name: Assert provision tasks use template lookup for ConfigMap
+    ansible.builtin.assert:
+      that: '''ansible.builtin.template'' in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must use lookup('ansible.builtin.template', ...) for ConfigMap data
+  - name: Assert provision tasks do NOT use legacy openshift_v1 or k8s_v1 modules
+    ansible.builtin.assert:
+      that:
+      - '''openshift_v1_deployment_config'' not in provision_tasks.content | b64decode'
+      - '''k8s_v1_service'' not in provision_tasks.content | b64decode'
+      - '''openshift_v1_route'' not in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must not use legacy openshift_v1 or k8s_v1 modules
+  - name: Assert provision tasks use nginx:latest image
+    ansible.builtin.assert:
+      that: '''nginx:latest'' in provision_tasks.content | b64decode'
+      fail_msg: provision tasks/main.yml must use nginx:latest image
+  - name: Slurp deprovision tasks/main.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/deprovision-nginx-oss-apb/tasks/main.yml'
+    register: deprovision_tasks
+  - name: Assert deprovision tasks use kubernetes.core.k8s
+    ansible.builtin.assert:
+      that: '''kubernetes.core.k8s'' in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must use kubernetes.core.k8s
+  - name: Assert deprovision tasks delete Ingress (not Route)
+    ansible.builtin.assert:
+      that: '''Ingress'' in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must delete Ingress, not OpenShift Route
+  - name: Assert deprovision tasks do NOT reference Route
+    ansible.builtin.assert:
+      that: '''route.openshift.io'' not in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must not reference legacy OpenShift Route
+  - name: Assert deprovision tasks delete Deployment (not DeploymentConfig)
+    ansible.builtin.assert:
+      that: '''Deployment'' in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must delete Deployment, not DeploymentConfig
+  - name: Assert deprovision tasks do NOT reference DeploymentConfig
+    ansible.builtin.assert:
+      that: '''DeploymentConfig'' not in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must not reference legacy DeploymentConfig
+  - name: Assert deprovision tasks do NOT use legacy openshift_v1 or k8s_v1 modules
+    ansible.builtin.assert:
+      that:
+      - '''openshift_v1_deployment_config'' not in deprovision_tasks.content | b64decode'
+      - '''k8s_v1_service'' not in deprovision_tasks.content | b64decode'
+      - '''openshift_v1_route'' not in deprovision_tasks.content | b64decode'
+      fail_msg: deprovision tasks/main.yml must not use legacy openshift_v1 or k8s_v1 modules
+  - name: Slurp provision defaults/main.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/provision-nginx-oss-apb/defaults/main.yml'
+    register: provision_defaults
+  - name: Assert provision defaults contain lb, server, lb_method
+    ansible.builtin.assert:
+      that:
+      - '''lb:'' in provision_defaults.content | b64decode'
+      - '''server:'' in provision_defaults.content | b64decode'
+      - '''lb_method:'' in provision_defaults.content | b64decode'
+      fail_msg: provision defaults/main.yml must define lb, server, and lb_method
+  - name: Slurp provision meta/argument_specs.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/provision-nginx-oss-apb/meta/argument_specs.yml'
+    register: provision_argspec
+  - name: Assert provision argument_specs has required namespace
+    ansible.builtin.assert:
+      that:
+      - '''namespace'' in provision_argspec.content | b64decode'
+      - '''required: true'' in provision_argspec.content | b64decode'
+      fail_msg: 'provision meta/argument_specs.yml must mark namespace as required: true'
+  - name: Assert provision argument_specs covers lb, server, lb_method
+    ansible.builtin.assert:
+      that:
+      - '''lb'' in provision_argspec.content | b64decode'
+      - '''server'' in provision_argspec.content | b64decode'
+      - '''lb_method'' in provision_argspec.content | b64decode'
+      fail_msg: provision meta/argument_specs.yml must document lb, server, and lb_method
+  - name: Slurp deprovision meta/argument_specs.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/deprovision-nginx-oss-apb/meta/argument_specs.yml'
+    register: deprovision_argspec
+  - name: Assert deprovision argument_specs has required namespace
+    ansible.builtin.assert:
+      that:
+      - '''namespace'' in deprovision_argspec.content | b64decode'
+      - '''required: true'' in deprovision_argspec.content | b64decode'
+      fail_msg: 'deprovision meta/argument_specs.yml must mark namespace as required: true'
+  - name: Slurp collections/requirements.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/collections/requirements.yml'
+    register: collections_req
+  - name: Assert collections/requirements.yml references kubernetes.core
+    ansible.builtin.assert:
+      that: '''kubernetes.core'' in collections_req.content | b64decode'
+      fail_msg: collections/requirements.yml must reference kubernetes.core collection
+  - name: Assert collections/requirements.yml does NOT reference legacy ansible.kubernetes-modules
+    ansible.builtin.assert:
+      that: '''ansible.kubernetes-modules'' not in collections_req.content | b64decode'
+      fail_msg: collections/requirements.yml must not reference legacy ansible.kubernetes-modules
+  - name: Slurp requirements.txt
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/requirements.txt'
+    register: requirements_txt
+  - name: Assert requirements.txt contains kubernetes, openshift, PyYAML
+    ansible.builtin.assert:
+      that:
+      - '''kubernetes'' in requirements_txt.content | b64decode'
+      - '''openshift'' in requirements_txt.content | b64decode'
+      - '''PyYAML'' in requirements_txt.content | b64decode'
+      fail_msg: requirements.txt must list kubernetes, openshift, and PyYAML
+  - name: Slurp execution-environment.yml
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/execution-environment.yml'
+    register: ee_yml
+  - name: Assert execution-environment.yml uses modern EE format (version key)
+    ansible.builtin.assert:
+      that: '''version:'' in ee_yml.content | b64decode'
+      fail_msg: execution-environment.yml must use modern EE format with a version key
+  - name: Assert execution-environment.yml references collections/requirements.yml
+    ansible.builtin.assert:
+      that: '''collections/requirements.yml'' in ee_yml.content | b64decode'
+      fail_msg: execution-environment.yml must reference collections/requirements.yml for galaxy dependencies
+  - name: Slurp rendered config for lb=false
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-false.conf'
+    register: rendered_lb_false
+  - name: Assert lb=false config has server block
+    ansible.builtin.assert:
+      that: '''server {'' in rendered_lb_false.content | b64decode'
+      fail_msg: lb=false rendered config must contain a server block
+  - name: Assert lb=false config serves static files (root directive)
+    ansible.builtin.assert:
+      that: '''root /usr/share/nginx/html'' in rendered_lb_false.content | b64decode'
+      fail_msg: lb=false rendered config must serve static files via root directive
+  - name: Assert lb=false config has NO upstream block
+    ansible.builtin.assert:
+      that: '''upstream'' not in rendered_lb_false.content | b64decode'
+      fail_msg: lb=false rendered config must not contain an upstream block
+  - name: Assert lb=false config has NO proxy_pass directive
+    ansible.builtin.assert:
+      that: '''proxy_pass'' not in rendered_lb_false.content | b64decode'
+      fail_msg: lb=false rendered config must not contain a proxy_pass directive
+  - name: Slurp rendered config for lb=true, least_conn
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-true-least-conn.conf'
+    register: rendered_lb_least_conn
+  - name: Assert lb=true/least_conn config has upstream block
+    ansible.builtin.assert:
+      that: '''upstream upstr'' in rendered_lb_least_conn.content | b64decode'
+      fail_msg: lb=true/least_conn rendered config must contain an upstream block
+  - name: Assert lb=true/least_conn config specifies least_conn directive
+    ansible.builtin.assert:
+      that: '''least_conn'' in rendered_lb_least_conn.content | b64decode'
+      fail_msg: lb=true/least_conn rendered config must contain the least_conn directive
+  - name: Assert lb=true/least_conn config has proxy_pass
+    ansible.builtin.assert:
+      that: '''proxy_pass http://upstr'' in rendered_lb_least_conn.content | b64decode'
+      fail_msg: lb=true/least_conn rendered config must proxy to upstream
+  - name: Assert lb=true/least_conn config lists both backend servers
+    ansible.builtin.assert:
+      that:
+      - '''server 10.0.0.1:8080'' in rendered_lb_least_conn.content | b64decode'
+      - '''server 10.0.0.2:8080'' in rendered_lb_least_conn.content | b64decode'
+      fail_msg: lb=true/least_conn rendered config must list both backend servers
+  - name: Slurp rendered config for lb=true, hash
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-true-hash.conf'
+    register: rendered_lb_hash
+  - name: Assert lb=true/hash config has upstream block
+    ansible.builtin.assert:
+      that: '''upstream upstr'' in rendered_lb_hash.content | b64decode'
+      fail_msg: lb=true/hash rendered config must contain an upstream block
+  - name: Assert lb=true/hash config specifies hash directive with $request_uri
+    ansible.builtin.assert:
+      that: '''hash $request_uri'' in rendered_lb_hash.content | b64decode'
+      fail_msg: lb=true/hash rendered config must contain 'hash $request_uri'
+  - name: Slurp rendered config for lb=true, ip_hash
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-true-ip-hash.conf'
+    register: rendered_lb_ip_hash
+  - name: Assert lb=true/ip_hash config has upstream block
+    ansible.builtin.assert:
+      that: '''upstream upstr'' in rendered_lb_ip_hash.content | b64decode'
+      fail_msg: lb=true/ip_hash rendered config must contain an upstream block
+  - name: Assert lb=true/ip_hash config specifies ip_hash directive
+    ansible.builtin.assert:
+      that: '''ip_hash'' in rendered_lb_ip_hash.content | b64decode'
+      fail_msg: lb=true/ip_hash rendered config must contain the ip_hash directive
+  - name: Slurp rendered config for lb=true, round_robin
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-true-round-robin.conf'
+    register: rendered_lb_round_robin
+  - name: Assert lb=true/round_robin config has upstream block
+    ansible.builtin.assert:
+      that: '''upstream upstr'' in rendered_lb_round_robin.content | b64decode'
+      fail_msg: lb=true/round_robin rendered config must contain an upstream block
+  - name: Assert lb=true/round_robin config has proxy_pass
+    ansible.builtin.assert:
+      that: '''proxy_pass http://upstr'' in rendered_lb_round_robin.content | b64decode'
+      fail_msg: lb=true/round_robin rendered config must proxy to upstream
+  - name: Assert lb=true/round_robin config does NOT emit a load-balancing directive line
+    ansible.builtin.assert:
+      that: '''round_robin'' not in rendered_lb_round_robin.content | b64decode'
+      fail_msg: lb=true/round_robin rendered config must not emit a 'round_robin' directive (it is NGINX's implicit default)
+  - name: Slurp rendered config for lb as string false
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/rendered/default-lb-string-false.conf'
+    register: rendered_lb_string_false
+  - name: Assert lb=string-false config has NO upstream block (lb|bool guard works)
+    ansible.builtin.assert:
+      that: '''upstream'' not in rendered_lb_string_false.content | b64decode'
+      fail_msg: lb='false' (string) rendered config must not contain an upstream block — lb|bool filter must coerce the string
+  - name: Assert lb=string-false config serves static files
+    ansible.builtin.assert:
+      that: '''root /usr/share/nginx/html'' in rendered_lb_string_false.content | b64decode'
+      fail_msg: lb='false' (string) rendered config must serve static files
+  - name: Slurp template source default.conf.j2
+    ansible.builtin.slurp:
+      src: '{{ test_root }}/roles/provision-nginx-oss-apb/templates/default.conf.j2'
+    register: template_source
+  - name: Assert template uses lb | bool filter (APB survey string guard)
+    ansible.builtin.assert:
+      that: '''lb | bool'' in template_source.content | b64decode'
+      fail_msg: default.conf.j2 must use 'lb | bool' to coerce APB survey string values
+  - name: Assert template uses server_list variable name (not bare list)
+    ansible.builtin.assert:
+      that: '''server_list'' in template_source.content | b64decode'
+      fail_msg: default.conf.j2 must use 'server_list' variable name for the split server list
+  - name: Assert template uses server | default('') guard
+    ansible.builtin.assert:
+      that: '''server | default'' in template_source.content | b64decode'
+      fail_msg: default.conf.j2 must guard the server variable with a default('') filter
+  - name: Gather service facts
+    ansible.builtin.service_facts: null
+    tags: molecule-notest
+  - name: Check NGINX OSS APB deployment is running in cluster
+    ansible.builtin.command: 'kubectl get deployment nginx-oss-apb -n test-nginx -o jsonpath=''{.status.readyReplicas}''
+
+      '
+    register: nginx_ready_replicas
+    changed_when: false
+    tags: molecule-notest
+  - name: Assert NGINX OSS APB deployment has at least one ready replica
+    ansible.builtin.assert:
+      that: nginx_ready_replicas.stdout | int >= 1
+      fail_msg: NGINX OSS APB deployment must have at least one ready replica
+    tags: molecule-notest
+  - name: Check NGINX OSS APB ingress exists in cluster
+    ansible.builtin.command: 'kubectl get ingress nginx-oss-apb -n test-nginx
+
+      '
+    register: nginx_ingress
+    changed_when: false
+    tags: molecule-notest
+  - name: Assert NGINX OSS APB ingress exists
+    ansible.builtin.assert:
+      that: nginx_ingress.rc == 0
+      fail_msg: NGINX OSS APB ingress must exist in the cluster
+    tags: molecule-notest
+  - name: Wait for NGINX OSS APB service port to be reachable
+    ansible.builtin.wait_for:
+      host: nginx-oss-apb.test-nginx.svc.cluster.local
+      port: 80
+      timeout: 30
+    tags: molecule-notest
