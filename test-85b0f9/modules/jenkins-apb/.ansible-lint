@@ -1,0 +1,15 @@
+---
+# ansible-lint configuration
+# Suppresses false positives from Kubernetes manifest fields inside definition: blocks
+
+profile: moderate
+
+skip_list:
+  # jinja[type]: False positive — 'kind' and 'type' inside kubernetes.core.k8s definition:
+  # blocks are Kubernetes manifest fields, not Jinja2 type expressions.
+  # ansible-lint incorrectly flags bare words like 'Service', 'ClusterIP', 'Route' etc.
+  - jinja[type]
+
+warn_list:
+  - yaml[indentation]
+  - yaml[document-start]

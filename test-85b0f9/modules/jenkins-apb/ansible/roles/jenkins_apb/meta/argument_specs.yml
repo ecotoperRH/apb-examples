@@ -1,0 +1,70 @@
+---
+argument_specs:
+  main:
+    short_description: Provision and deprovision a Jenkins CI/CD server on OpenShift
+    description:
+      - Provisions a Jenkins CI/CD server on OpenShift including Services, Route, ServiceAccount, RoleBinding, and DeploymentConfig.
+      - Supports both ephemeral and persistent storage via PVC.
+      - Optionally enables OpenShift OAuth integration for Jenkins authentication.
+      - Optionally performs S2I (source-to-image) customization via BuildConfig and ImageStream when source_git_uri, source_git_ref, and source_context_dir are
+        all defined.
+      - Set state to absent (or use the deprovision playbook) to remove all resources.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Target OpenShift/Kubernetes namespace in which all Jenkins resources will be created or deleted.
+      state:
+        type: str
+        required: false
+        default: present
+        description: Desired state of all Jenkins resources. Use 'present' to provision and 'absent' to deprovision.
+      persistent:
+        type: bool
+        required: false
+        default: false
+        description: When true, a PersistentVolumeClaim is created and mounted into the Jenkins DeploymentConfig. When false, Jenkins uses ephemeral storage.
+      volume_capacity:
+        type: str
+        required: false
+        default: 1Gi
+        description: Storage capacity for the Jenkins PersistentVolumeClaim. Only used when persistent is true.
+      enable_oauth:
+        type: bool
+        required: false
+        default: true
+        description: When true, enables OpenShift OAuth login for Jenkins by configuring the OPENSHIFT_ENABLE_OAUTH environment variable in the
+          DeploymentConfig.
+      memory_limit:
+        type: str
+        required: false
+        default: 512Mi
+        description: Memory limit for the Jenkins container in the DeploymentConfig. Accepts standard Kubernetes resource quantity notation (e.g. 512Mi, 1Gi).
+      jenkins_service_name:
+        type: str
+        required: false
+        default: jenkins
+        description: Base name used for the Jenkins Service, ServiceAccount, Route, DeploymentConfig, PVC, and RoleBinding resources.
+      jnlp_service_name:
+        type: str
+        required: false
+        default: jenkins-jnlp
+        description: Name for the Jenkins JNLP agent Service (TCP port 50000).
+      jenkins_image_stream_tag:
+        type: str
+        required: false
+        default: jenkins:latest
+        description: ImageStreamTag reference used as the source image for the Jenkins DeploymentConfig. Format is <name>:<tag>.
+      source_git_uri:
+        type: str
+        required: false
+        description: Git repository URI for S2I Jenkins customization. When defined, source_git_ref and source_context_dir must also be defined. All three
+          variables together trigger creation of an ImageStream and BuildConfig for custom Jenkins image builds.
+      source_git_ref:
+        type: str
+        required: false
+        description: Git branch or ref for the S2I build. Required when source_git_uri is defined.
+      source_context_dir:
+        type: str
+        required: false
+        description: Context directory within the Git repository for the S2I build. Required when source_git_uri is defined.

@@ -1,0 +1,64 @@
+---
+- name: Delete Jenkins DeploymentConfig
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apps.openshift.io/v1
+    kind: DeploymentConfig
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins BuildConfig
+  kubernetes.core.k8s:
+    state: absent
+    api_version: build.openshift.io/v1
+    kind: BuildConfig
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins ImageStream
+  kubernetes.core.k8s:
+    state: absent
+    api_version: image.openshift.io/v1
+    kind: ImageStream
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins RoleBinding
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    name: "{{ jenkins_service_name }}_edit"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins ServiceAccount
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins PersistentVolumeClaim
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins Route
+  kubernetes.core.k8s:
+    state: absent
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete JNLP agent Service
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Service
+    name: "{{ jnlp_service_name }}"
+    namespace: "{{ namespace }}"
+- name: Delete Jenkins Service
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Service
+    name: "{{ jenkins_service_name }}"
+    namespace: "{{ namespace }}"

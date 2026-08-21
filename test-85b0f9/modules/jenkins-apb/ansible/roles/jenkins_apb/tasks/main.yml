@@ -1,0 +1,116 @@
+---
+- name: Create Jenkins Service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+        annotations:
+          service.alpha.openshift.io/dependencies: "{{ service_dependencies | to_json }}"
+          service.openshift.io/infrastructure: "true"
+      spec:
+        ports:
+          - name: web
+            nodePort: 0
+            port: 80
+            protocol: TCP
+            targetPort: 8080
+        selector:
+          name: "{{ jenkins_service_name }}"
+        sessionAffinity: None
+        type: ClusterIP
+- name: Create JNLP Service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jnlp_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        ports:
+          - name: agent
+            nodePort: 0
+            port: 50000
+            protocol: TCP
+            targetPort: 50000
+        selector:
+          name: "{{ jenkins_service_name }}"
+        sessionAffinity: None
+        type: ClusterIP
+- name: Create Route
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        tls:
+          insecureEdgeTerminationPolicy: Redirect
+          termination: edge
+        to:
+          kind: Service
+          name: "{{ jenkins_service_name }}"
+- name: Create PersistentVolumeClaim
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ volume_capacity }}"
+  when: persistent | bool
+- name: Create ServiceAccount
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+        annotations:
+          serviceaccounts.openshift.io/oauth-redirectreference.jenkins: "{{ oauth_redirect_reference_jenkins | to_json }}"
+- name: Create RoleBinding
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition: "{{ lookup('ansible.builtin.template', 'rolebinding.yaml.j2') | from_yaml }}"
+- name: Create ImageStream
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: image.openshift.io/v1
+      kind: ImageStream
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+  when:
+    - source_git_uri is defined
+    - source_git_ref is defined
+    - source_context_dir is defined
+- name: Create BuildConfig
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition: "{{ lookup('ansible.builtin.template', 'buildconfig.yaml.j2') | from_yaml }}"
+  when:
+    - source_git_uri is defined
+    - source_git_ref is defined
+    - source_context_dir is defined
+- name: Create DeploymentConfig
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition: "{{ lookup('ansible.builtin.template', 'dc.yaml.j2') | from_yaml }}"

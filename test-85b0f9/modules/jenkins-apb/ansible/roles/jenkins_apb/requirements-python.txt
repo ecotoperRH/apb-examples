@@ -1,0 +1,9 @@
+# requirements-python.txt — Python package dependencies for jenkins_apb EE
+#
+# These packages are required by the kubernetes.core collection.
+# ansible-builder installs these into the Execution Environment image.
+
+kubernetes>=24.2.0
+openshift>=0.13.2
+PyYAML>=6.0
+jsonpatch>=1.33

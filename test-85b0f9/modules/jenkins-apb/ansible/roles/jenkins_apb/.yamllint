@@ -1,0 +1,16 @@
+---
+extends: default
+rules:
+  indentation:
+    # Allow block sequences to be indented at the same level as their parent key
+    # This is required for YAML serializers that normalize block sequence indentation
+    indent-sequences: whatever
+    spaces: 2
+  line-length:
+    max: 160
+    level: warning
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+    check-keys: false

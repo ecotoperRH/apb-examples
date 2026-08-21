@@ -1,0 +1,457 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    jenkins_service_name: jenkins
+    jnlp_service_name: jenkins-jnlp
+    namespace: test-jenkins
+
+  tasks:
+    # =======================================================================
+    # DIRECTORY STRUCTURE
+    # =======================================================================
+    - name: Stat manifests root directory
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests
+      register: manifests_dir
+
+    - name: Assert manifests root directory exists
+      ansible.builtin.assert:
+        that:
+          - manifests_dir.stat.exists
+          - manifests_dir.stat.isdir
+        fail_msg: "Expected /tmp/molecule_test/manifests directory was not created"
+        success_msg: "manifests root directory exists"
+
+    - name: Stat services sub-directory
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/services
+      register: services_dir
+
+    - name: Assert services directory exists
+      ansible.builtin.assert:
+        that:
+          - services_dir.stat.exists
+          - services_dir.stat.isdir
+        fail_msg: "Expected /tmp/molecule_test/manifests/services directory was not created"
+        success_msg: "services directory exists"
+
+    - name: Stat rolebindings sub-directory
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/rolebindings
+      register: rolebindings_dir
+
+    - name: Assert rolebindings directory exists
+      ansible.builtin.assert:
+        that:
+          - rolebindings_dir.stat.exists
+          - rolebindings_dir.stat.isdir
+        fail_msg: "Expected /tmp/molecule_test/manifests/rolebindings directory was not created"
+        success_msg: "rolebindings directory exists"
+
+    - name: Stat deploymentconfigs sub-directory
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/deploymentconfigs
+      register: dc_dir
+
+    - name: Assert deploymentconfigs directory exists
+      ansible.builtin.assert:
+        that:
+          - dc_dir.stat.exists
+          - dc_dir.stat.isdir
+        fail_msg: "Expected /tmp/molecule_test/manifests/deploymentconfigs directory was not created"
+        success_msg: "deploymentconfigs directory exists"
+
+    # =======================================================================
+    # JENKINS SERVICE MANIFEST
+    # =======================================================================
+    - name: Stat Jenkins Service manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+      register: jenkins_svc_file
+
+    - name: Assert Jenkins Service manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - jenkins_svc_file.stat.exists
+          - jenkins_svc_file.stat.size > 0
+        fail_msg: "Jenkins Service manifest not found at expected path"
+        success_msg: "Jenkins Service manifest exists"
+
+    - name: Slurp Jenkins Service manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+      register: jenkins_svc_content
+
+    - name: Assert Jenkins Service manifest has correct content
+      ansible.builtin.assert:
+        that:
+          - "'kind: Service' in (jenkins_svc_content.content | b64decode)"
+          - "'name: jenkins' in (jenkins_svc_content.content | b64decode)"
+          - "'port: 80' in (jenkins_svc_content.content | b64decode)"
+          - "'targetPort: 8080' in (jenkins_svc_content.content | b64decode)"
+          - "'namespace: test-jenkins' in (jenkins_svc_content.content | b64decode)"
+          - "'type: ClusterIP' in (jenkins_svc_content.content | b64decode)"
+        fail_msg: "Jenkins Service manifest content is incorrect"
+        success_msg: "Jenkins Service manifest content is correct"
+
+    # =======================================================================
+    # JNLP AGENT SERVICE MANIFEST
+    # =======================================================================
+    - name: Stat JNLP Service manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+      register: jnlp_svc_file
+
+    - name: Assert JNLP Service manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - jnlp_svc_file.stat.exists
+          - jnlp_svc_file.stat.size > 0
+        fail_msg: "JNLP Service manifest not found at expected path"
+        success_msg: "JNLP Service manifest exists"
+
+    - name: Slurp JNLP Service manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+      register: jnlp_svc_content
+
+    - name: Assert JNLP Service manifest has correct content
+      ansible.builtin.assert:
+        that:
+          - "'kind: Service' in (jnlp_svc_content.content | b64decode)"
+          - "'name: jenkins-jnlp' in (jnlp_svc_content.content | b64decode)"
+          - "'port: 50000' in (jnlp_svc_content.content | b64decode)"
+          - "'targetPort: 50000' in (jnlp_svc_content.content | b64decode)"
+        fail_msg: "JNLP Service manifest content is incorrect"
+        success_msg: "JNLP Service manifest content is correct"
+
+    # =======================================================================
+    # OPENSHIFT ROUTE MANIFEST
+    # =======================================================================
+    - name: Stat Route manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/routes/jenkins-route.yaml
+      register: route_file
+
+    - name: Assert Route manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - route_file.stat.exists
+          - route_file.stat.size > 0
+        fail_msg: "Route manifest not found at expected path"
+        success_msg: "Route manifest exists"
+
+    - name: Slurp Route manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/routes/jenkins-route.yaml
+      register: route_content
+
+    - name: Assert Route manifest has correct content
+      ansible.builtin.assert:
+        that:
+          - "'kind: Route' in (route_content.content | b64decode)"
+          - "'apiVersion: route.openshift.io/v1' in (route_content.content | b64decode)"
+          - "'termination: edge' in (route_content.content | b64decode)"
+          - "'insecureEdgeTerminationPolicy: Redirect' in (route_content.content | b64decode)"
+          - "'name: jenkins' in (route_content.content | b64decode)"
+        fail_msg: "Route manifest content is incorrect — expected TLS edge termination with Redirect policy"
+        success_msg: "Route manifest content is correct"
+
+    # =======================================================================
+    # SERVICEACCOUNT MANIFEST
+    # =======================================================================
+    - name: Stat ServiceAccount manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+      register: sa_file
+
+    - name: Assert ServiceAccount manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - sa_file.stat.exists
+          - sa_file.stat.size > 0
+        fail_msg: "ServiceAccount manifest not found at expected path"
+        success_msg: "ServiceAccount manifest exists"
+
+    - name: Slurp ServiceAccount manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+      register: sa_content
+
+    - name: Assert ServiceAccount manifest has correct content
+      ansible.builtin.assert:
+        that:
+          - "'kind: ServiceAccount' in (sa_content.content | b64decode)"
+          - "'name: jenkins' in (sa_content.content | b64decode)"
+          - "'oauth-redirectreference' in (sa_content.content | b64decode)"
+        fail_msg: "ServiceAccount manifest content is incorrect — expected OAuth redirect annotation"
+        success_msg: "ServiceAccount manifest content is correct"
+
+    # =======================================================================
+    # ROLEBINDING MANIFEST (modern RBAC)
+    # =======================================================================
+    - name: Stat RoleBinding manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+      register: rb_file
+
+    - name: Assert RoleBinding manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - rb_file.stat.exists
+          - rb_file.stat.size > 0
+        fail_msg: "RoleBinding manifest not found at expected path"
+        success_msg: "RoleBinding manifest exists"
+
+    - name: Slurp RoleBinding manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+      register: rb_content
+
+    - name: Assert RoleBinding manifest uses modern RBAC apiVersion
+      ansible.builtin.assert:
+        that:
+          - "'kind: RoleBinding' in (rb_content.content | b64decode)"
+          - "'apiVersion: rbac.authorization.k8s.io/v1' in (rb_content.content | b64decode)"
+        fail_msg: "RoleBinding manifest does not use modern rbac.authorization.k8s.io/v1 apiVersion"
+        success_msg: "RoleBinding manifest uses correct modern apiVersion"
+
+    - name: Assert RoleBinding manifest has correct roleRef fields
+      ansible.builtin.assert:
+        that:
+          - "'apiGroup: rbac.authorization.k8s.io' in (rb_content.content | b64decode)"
+          - "'kind: ClusterRole' in (rb_content.content | b64decode)"
+          - "'name: edit' in (rb_content.content | b64decode)"
+        fail_msg: "RoleBinding roleRef is missing required apiGroup or kind fields"
+        success_msg: "RoleBinding roleRef fields are correct"
+
+    - name: Assert RoleBinding subject includes namespace field
+      ansible.builtin.assert:
+        that:
+          - "'kind: ServiceAccount' in (rb_content.content | b64decode)"
+          - "'namespace: test-jenkins' in (rb_content.content | b64decode)"
+        fail_msg: "RoleBinding subject is missing namespace field (required for namespaced ServiceAccount)"
+        success_msg: "RoleBinding subject has namespace field"
+
+    # =======================================================================
+    # DEPLOYMENTCONFIG MANIFEST (ephemeral storage)
+    # =======================================================================
+    - name: Stat DeploymentConfig manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/deploymentconfigs/jenkins-dc.yaml
+      register: dc_file
+
+    - name: Assert DeploymentConfig manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - dc_file.stat.exists
+          - dc_file.stat.size > 0
+        fail_msg: "DeploymentConfig manifest not found at expected path"
+        success_msg: "DeploymentConfig manifest exists"
+
+    - name: Slurp DeploymentConfig manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/deploymentconfigs/jenkins-dc.yaml
+      register: dc_content
+
+    - name: Assert DeploymentConfig manifest uses modern OpenShift apiVersion
+      ansible.builtin.assert:
+        that:
+          - "'kind: DeploymentConfig' in (dc_content.content | b64decode)"
+          - "'apiVersion: apps.openshift.io/v1' in (dc_content.content | b64decode)"
+        fail_msg: "DeploymentConfig does not use modern apps.openshift.io/v1 apiVersion"
+        success_msg: "DeploymentConfig uses correct modern apiVersion"
+
+    - name: Assert DeploymentConfig manifest has correct resource settings
+      ansible.builtin.assert:
+        that:
+          - "'name: jenkins' in (dc_content.content | b64decode)"
+          - "'memory: 512Mi' in (dc_content.content | b64decode)"
+          - "'OPENSHIFT_ENABLE_OAUTH' in (dc_content.content | b64decode)"
+          - "'JNLP_SERVICE_NAME' in (dc_content.content | b64decode)"
+        fail_msg: "DeploymentConfig manifest is missing expected resource settings or env vars"
+        success_msg: "DeploymentConfig manifest has correct resource settings"
+
+    - name: Assert DeploymentConfig uses emptyDir for ephemeral storage (persistent=false)
+      ansible.builtin.assert:
+        that:
+          - "'emptyDir' in (dc_content.content | b64decode)"
+        fail_msg: "DeploymentConfig should use emptyDir volume when persistent=false"
+        success_msg: "DeploymentConfig correctly uses emptyDir for ephemeral storage"
+
+    - name: Assert DeploymentConfig has ImageChange trigger
+      ansible.builtin.assert:
+        that:
+          - "'ImageChange' in (dc_content.content | b64decode)"
+          - "'ConfigChange' in (dc_content.content | b64decode)"
+        fail_msg: "DeploymentConfig is missing ImageChange or ConfigChange triggers"
+        success_msg: "DeploymentConfig has correct triggers"
+
+    # =======================================================================
+    # PVC MANIFEST (rendered artefact — not applied when persistent=false)
+    # =======================================================================
+    - name: Stat PVC manifest
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+      register: pvc_file
+
+    - name: Assert PVC manifest exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - pvc_file.stat.exists
+          - pvc_file.stat.size > 0
+        fail_msg: "PVC manifest not found at expected path"
+        success_msg: "PVC manifest exists"
+
+    - name: Slurp PVC manifest
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+      register: pvc_content
+
+    - name: Assert PVC manifest has correct content
+      ansible.builtin.assert:
+        that:
+          - "'kind: PersistentVolumeClaim' in (pvc_content.content | b64decode)"
+          - "'ReadWriteOnce' in (pvc_content.content | b64decode)"
+          - "'storage: 1Gi' in (pvc_content.content | b64decode)"
+        fail_msg: "PVC manifest content is incorrect"
+        success_msg: "PVC manifest content is correct"
+
+    # =======================================================================
+    # REQUIREMENTS.YML — collection dependencies
+    # =======================================================================
+    - name: Stat requirements.yml
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/requirements.yml
+      register: req_file
+
+    - name: Assert requirements.yml exists
+      ansible.builtin.assert:
+        that:
+          - req_file.stat.exists
+          - req_file.stat.size > 0
+        fail_msg: "requirements.yml not found"
+        success_msg: "requirements.yml exists"
+
+    - name: Slurp requirements.yml
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/requirements.yml
+      register: req_content
+
+    - name: Assert requirements.yml declares kubernetes.core collection
+      ansible.builtin.assert:
+        that:
+          - "'kubernetes.core' in (req_content.content | b64decode)"
+        fail_msg: "requirements.yml does not declare kubernetes.core collection dependency"
+        success_msg: "requirements.yml declares kubernetes.core collection"
+
+    - name: Assert requirements.yml declares community.okd collection
+      ansible.builtin.assert:
+        that:
+          - "'community.okd' in (req_content.content | b64decode)"
+        fail_msg: "requirements.yml does not declare community.okd collection dependency"
+        success_msg: "requirements.yml declares community.okd collection"
+
+    # =======================================================================
+    # DEFAULTS — variable defaults
+    # =======================================================================
+    - name: Stat defaults file
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/defaults_main.yml
+      register: defaults_file
+
+    - name: Assert defaults file exists
+      ansible.builtin.assert:
+        that:
+          - defaults_file.stat.exists
+          - defaults_file.stat.size > 0
+        fail_msg: "defaults_main.yml not found"
+        success_msg: "defaults_main.yml exists"
+
+    - name: Slurp defaults file
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/defaults_main.yml
+      register: defaults_content
+
+    - name: Assert defaults use YAML booleans (not Python-style True/False)
+      ansible.builtin.assert:
+        that:
+          - "'persistent: false' in (defaults_content.content | b64decode)"
+          - "'enable_oauth: true' in (defaults_content.content | b64decode)"
+          - "'True' not in (defaults_content.content | b64decode)"
+          - "'False' not in (defaults_content.content | b64decode)"
+        fail_msg: "defaults file contains Python-style booleans (True/False) — must use YAML booleans (true/false)"
+        success_msg: "defaults file uses correct YAML booleans"
+
+    - name: Assert defaults contain expected variable names
+      ansible.builtin.assert:
+        that:
+          - "'jenkins_service_name' in (defaults_content.content | b64decode)"
+          - "'jnlp_service_name' in (defaults_content.content | b64decode)"
+          - "'memory_limit' in (defaults_content.content | b64decode)"
+          - "'volume_capacity' in (defaults_content.content | b64decode)"
+          - "'jenkins_image_stream_tag' in (defaults_content.content | b64decode)"
+        fail_msg: "defaults file is missing one or more expected variable definitions"
+        success_msg: "defaults file contains all expected variable definitions"
+
+    # =======================================================================
+    # ARGUMENT SPECS — role argument specification
+    # =======================================================================
+    - name: Stat argument_specs file
+      ansible.builtin.stat:
+        path: /tmp/molecule_test/argument_specs.yml
+      register: argspec_file
+
+    - name: Assert argument_specs file exists
+      ansible.builtin.assert:
+        that:
+          - argspec_file.stat.exists
+          - argspec_file.stat.size > 0
+        fail_msg: "argument_specs.yml not found"
+        success_msg: "argument_specs.yml exists"
+
+    - name: Slurp argument_specs file
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/argument_specs.yml
+      register: argspec_content
+
+    - name: Assert argument_specs declares namespace as required
+      ansible.builtin.assert:
+        that:
+          - "'namespace' in (argspec_content.content | b64decode)"
+          - "'required: true' in (argspec_content.content | b64decode)"
+        fail_msg: "argument_specs.yml does not declare namespace as a required parameter"
+        success_msg: "argument_specs.yml correctly marks namespace as required"
+
+    - name: Assert argument_specs declares S2I optional variables
+      ansible.builtin.assert:
+        that:
+          - "'source_git_uri' in (argspec_content.content | b64decode)"
+          - "'source_git_ref' in (argspec_content.content | b64decode)"
+          - "'source_context_dir' in (argspec_content.content | b64decode)"
+        fail_msg: "argument_specs.yml is missing S2I optional variable declarations"
+        success_msg: "argument_specs.yml declares all S2I optional variables"
+
+    # =======================================================================
+    # SERVICE CHECKS — require a live cluster; tagged molecule-notest
+    # =======================================================================
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+      tags: molecule-notest
+
+    - name: Check Jenkins HTTP endpoint is reachable
+      ansible.builtin.uri:
+        url: "http://jenkins.{{ namespace }}.svc/login"
+        status_code: 200
+        timeout: 10
+      tags: molecule-notest
+
+    - name: Check Jenkins JNLP port is open
+      ansible.builtin.wait_for:
+        host: "jenkins-jnlp.{{ namespace }}.svc"
+        port: 50000
+        timeout: 10
+        state: started
+      tags: molecule-notest

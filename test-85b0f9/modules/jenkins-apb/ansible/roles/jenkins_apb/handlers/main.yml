@@ -1,0 +1,6 @@
+---
+# No handlers are required for the jenkins_apb role.
+# All Kubernetes/OpenShift resource lifecycle operations are managed
+# directly via kubernetes.core.k8s which is idempotent by design.
+# Service restarts and rollouts are handled by the OpenShift/Kubernetes
+# control plane automatically when resource definitions change.

@@ -1,0 +1,13 @@
+version: 3
+build_arg_defaults:
+  ANSIBLE_GALAXY_SERVER_URL: https://galaxy.ansible.com
+dependencies:
+  galaxy: requirements.yml
+  python: requirements-python.txt
+  system: bindep.txt
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9:latest
+additional_build_steps:
+  prepend_galaxy:
+  - ENV ANSIBLE_GALAXY_SERVER_TIMEOUT=120

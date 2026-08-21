@@ -1,0 +1,124 @@
+- name: Converge
+  hosts: all
+  gather_facts: false
+  vars:
+    jenkins_service_name: jenkins
+    jnlp_service_name: jenkins-jnlp
+    namespace: test-jenkins
+    persistent: false
+    volume_capacity: 1Gi
+    enable_oauth: true
+    memory_limit: 512Mi
+    jenkins_image_stream_tag: jenkins:latest
+    state: present
+  tasks:
+  - name: Create base molecule test directory tree
+    ansible.builtin.file:
+      path: '{{ item }}'
+      state: directory
+      mode: '0755'
+    loop:
+    - /tmp/molecule_test
+    - /tmp/molecule_test/manifests
+    - /tmp/molecule_test/manifests/services
+    - /tmp/molecule_test/manifests/routes
+    - /tmp/molecule_test/manifests/serviceaccounts
+    - /tmp/molecule_test/manifests/rolebindings
+    - /tmp/molecule_test/manifests/deploymentconfigs
+    - /tmp/molecule_test/manifests/pvc
+    - /tmp/molecule_test/manifests/imagestreams
+    - /tmp/molecule_test/manifests/buildconfigs
+  - name: Create Jenkins Service manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+      mode: '0644'
+      content: "apiVersion: v1\nkind: Service\nmetadata:\n  name: {{ jenkins_service_name }}\n  namespace: {{ namespace }}\n  annotations:\n    service.alpha.openshift.io/dependencies:
+        '[{\"name\":\"jenkins-jnlp\",\"namespace\":\"test-jenkins\",\"kind\":\"Service\"}]'\n    service.openshift.io/infrastructure: \"true\"\nspec:\n  ports:\n
+        \   - name: web\n      nodePort: 0\n      port: 80\n      protocol: TCP\n      targetPort: 8080\n  selector:\n    name: {{ jenkins_service_name }}\n  sessionAffinity:
+        None\n  type: ClusterIP\n"
+  - name: Create JNLP Service manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+      mode: '0644'
+      content: "apiVersion: v1\nkind: Service\nmetadata:\n  name: {{ jnlp_service_name }}\n  namespace: {{ namespace }}\nspec:\n  ports:\n    - name: agent\n      nodePort:
+        0\n      port: 50000\n      protocol: TCP\n      targetPort: 50000\n  selector:\n    name: {{ jenkins_service_name }}\n  sessionAffinity: None\n  type: ClusterIP\n"
+  - name: Create Route manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/routes/jenkins-route.yaml
+      mode: '0644'
+      content: "apiVersion: route.openshift.io/v1\nkind: Route\nmetadata:\n  name: {{ jenkins_service_name }}\n  namespace: {{ namespace }}\nspec:\n  tls:\n    insecureEdgeTerminationPolicy:
+        Redirect\n    termination: edge\n  to:\n    kind: Service\n    name: {{ jenkins_service_name }}\n"
+  - name: Create ServiceAccount manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+      mode: '0644'
+      content: "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: {{ jenkins_service_name }}\n  namespace: {{ namespace }}\n  annotations:\n    serviceaccounts.openshift.io/oauth-redirectreference.jenkins:
+        >-\n      {\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\n       \"reference\":{\"kind\":\"Route\",\"name\":\"jenkins\"}}\n"
+  - name: Create RoleBinding manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+      mode: '0644'
+      content: "apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata:\n  name: {{ jenkins_service_name }}_edit\n  namespace: {{ namespace }}\nroleRef:\n
+        \ apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: edit\nsubjects:\n  - kind: ServiceAccount\n    name: {{ jenkins_service_name }}\n    namespace:
+        {{ namespace }}\n"
+  - name: Create DeploymentConfig manifest (ephemeral)
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/deploymentconfigs/jenkins-dc.yaml
+      mode: '0644'
+      content: "apiVersion: apps.openshift.io/v1\nkind: DeploymentConfig\nmetadata:\n  name: {{ jenkins_service_name }}\nspec:\n  replicas: 1\n  selector:\n    name:
+        {{ jenkins_service_name }}\n  strategy:\n    type: Recreate\n  template:\n    metadata:\n      labels:\n        name: {{ jenkins_service_name }}\n    spec:\n
+        \     containers:\n        - name: jenkins\n          image: ' '\n          imagePullPolicy: IfNotPresent\n          env:\n            - name: OPENSHIFT_ENABLE_OAUTH\n
+        \             value: \"{{ enable_oauth }}\"\n            - name: OPENSHIFT_ENABLE_REDIRECT_PROMPT\n              value: \"true\"\n            - name: KUBERNETES_MASTER\n
+        \             value: https://kubernetes.default:443\n            - name: KUBERNETES_TRUST_CERTIFICATES\n              value: \"true\"\n            - name:
+        JNLP_SERVICE_NAME\n              value: {{ jnlp_service_name }}\n          resources:\n            limits:\n              memory: {{ memory_limit }}\n          securityContext:\n
+        \           capabilities: {}\n            privileged: false\n          volumeMounts:\n            - mountPath: /var/lib/jenkins\n              name: {{ jenkins_service_name
+        }}-data\n      serviceAccountName: {{ jenkins_service_name }}\n      volumes:\n        - name: {{ jenkins_service_name }}-data\n          emptyDir:\n            medium:
+        \"\"\n  triggers:\n    - type: ConfigChange\n    - type: ImageChange\n      imageChangeParams:\n        automatic: true\n        containerNames:\n          -
+        jenkins\n        from:\n          kind: ImageStreamTag\n          name: {{ jenkins_image_stream_tag }}\n          namespace: openshift\n"
+  - name: Create PVC manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+      mode: '0644'
+      content: "apiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: {{ jenkins_service_name }}\n  namespace: {{ namespace }}\nspec:\n  accessModes:\n
+        \   - ReadWriteOnce\n  resources:\n    requests:\n      storage: {{ volume_capacity }}\n"
+  - name: Create requirements.yml under molecule test tree
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/requirements.yml
+      mode: '0644'
+      content: "---\ncollections:\n  - name: kubernetes.core\n    version: \">=2.4.0\"\n  - name: community.okd\n    version: \">=2.3.0\"\n  - name: ansible.utils\n
+        \   version: \">=2.10.0\"\n"
+  - name: Create defaults file under molecule test tree
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/defaults_main.yml
+      mode: '0644'
+      content: '---
+
+        persistent: false
+
+        volume_capacity: 1Gi
+
+        enable_oauth: true
+
+        memory_limit: 512Mi
+
+        jenkins_image_stream_tag: jenkins:latest
+
+        jenkins_service_name: jenkins
+
+        jnlp_service_name: jenkins-jnlp
+
+        state: present
+
+        '
+  - name: Create argument_specs file under molecule test tree
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/argument_specs.yml
+      mode: '0644'
+      content: "---\nargument_specs:\n  main:\n    short_description: Provision and deprovision a Jenkins CI/CD server on OpenShift\n    options:\n      namespace:\n
+        \       type: str\n        required: true\n      state:\n        type: str\n        required: false\n        default: present\n      persistent:\n        type:
+        bool\n        required: false\n        default: false\n      volume_capacity:\n        type: str\n        required: false\n        default: 1Gi\n      enable_oauth:\n
+        \       type: bool\n        required: false\n        default: true\n      memory_limit:\n        type: str\n        required: false\n        default: 512Mi\n
+        \     jenkins_service_name:\n        type: str\n        required: false\n        default: jenkins\n      jnlp_service_name:\n        type: str\n        required:
+        false\n        default: jenkins-jnlp\n      jenkins_image_stream_tag:\n        type: str\n        required: false\n        default: \"jenkins:latest\"\n      source_git_uri:\n
+        \       type: str\n        required: false\n      source_git_ref:\n        type: str\n        required: false\n      source_context_dir:\n        type: str\n
+        \       required: false\n"

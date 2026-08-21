@@ -1,0 +1,165 @@
+{
+  "module_name": "jenkins_apb",
+  "items": [
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers file (no handlers exist in source; create empty stub)",
+      "notes": "No handlers needed; kubernetes.core.k8s is idempotent and Kubernetes control plane manages rollouts"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata file (no source meta/main.yml exists; apb.yml served as APB manifest)",
+      "notes": "Created standard meta/main.yml"
+    },
+    {
+      "category": "structure",
+      "source_path": "roles/provision-jenkins-apb/defaults/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation \u2014 document all variables from apb.yml plans/parameters and defaults/main.yml (generate after defaults/main.yml is written)",
+      "notes": "Generated from defaults/main.yml plus source_git_uri/ref/context_dir optional S2I variables; namespace is required with no default"
+    },
+    {
+      "category": "attributes",
+      "source_path": "roles/provision-jenkins-apb/defaults/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/defaults/main.yml",
+      "status": "complete",
+      "description": "Provision role defaults \u2014 convert Python-style booleans (True/False) to YAML booleans (true/false); covers persistent, enable_oauth, and all other defaults",
+      "notes": "Converted Python-style booleans (False\u2192false, True\u2192true) to YAML booleans"
+    },
+    {
+      "category": "attributes",
+      "source_path": "roles/provision-jenkins-apb/vars/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/vars/main.yml",
+      "status": "complete",
+      "description": "Provision role vars \u2014 keep as-is per migration plan; no changes needed",
+      "notes": "Preserved all original variable definitions verbatim"
+    },
+    {
+      "category": "attributes",
+      "source_path": "roles/deprovision-jenkins-apb/defaults/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/defaults/deprovision.yml",
+      "status": "complete",
+      "description": "Deprovision role defaults \u2014 convert Python-style booleans (True/False) to YAML booleans (true/false)",
+      "notes": "Converted Python-style booleans; state defaults to absent for deprovision"
+    },
+    {
+      "category": "templates",
+      "source_path": "roles/provision-jenkins-apb/templates/dc.yaml.j2",
+      "target_path": "ansible/roles/jenkins_apb/templates/dc.yaml.j2",
+      "status": "complete",
+      "description": "DeploymentConfig manifest template \u2014 update apiVersion v1 \u2192 apps.openshift.io/v1; add | bool filter to persistent conditional; keep enable_oauth string rendering; consider migrating to standard Deployment",
+      "notes": "Converted: apiVersion v1 \u2192 apps.openshift.io/v1, added | bool filter to persistent conditional"
+    },
+    {
+      "category": "templates",
+      "source_path": "roles/provision-jenkins-apb/templates/buildconfig.yaml.j2",
+      "target_path": "ansible/roles/jenkins_apb/templates/buildconfig.yaml.j2",
+      "status": "complete",
+      "description": "BuildConfig manifest template \u2014 update apiVersion v1 \u2192 build.openshift.io/v1; no Jinja2 issues; all variables properly quoted",
+      "notes": "Converted: apiVersion v1 \u2192 build.openshift.io/v1"
+    },
+    {
+      "category": "templates",
+      "source_path": "roles/provision-jenkins-apb/templates/rolebinding.yaml.j2",
+      "target_path": "ansible/roles/jenkins_apb/templates/rolebinding.yaml.j2",
+      "status": "complete",
+      "description": "RoleBinding manifest template \u2014 update apiVersion v1 \u2192 rbac.authorization.k8s.io/v1; add roleRef.apiGroup and roleRef.kind; add namespace to subject; quote bare variable jenkins_service_name; consider eliminating in favour of inline definition: in task",
+      "notes": "Modernized: apiVersion v1 \u2192 rbac.authorization.k8s.io/v1, added roleRef.apiGroup and roleRef.kind, added namespace to subject, quoted jenkins_service_name variable"
+    },
+    {
+      "category": "recipes",
+      "source_path": "roles/provision-jenkins-apb/tasks/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/tasks/main.yml",
+      "status": "complete",
+      "description": "Provision tasks \u2014 rewrite all tombstoned APB modules (k8s_v1_service, k8s_v1_persistent_volume_claim, k8s_v1_service_account, openshift_v1_route, openshift_v1_image_stream, openshift_v1_deployment_config) to ansible.builtin equivalents; replace command: oc workarounds; remove ignore_errors; add changed_when; fix FQCN on template:; add | bool filter to persistent when condition",
+      "notes": "Rewrote all tombstoned k8s_v1_*/openshift_v1_* modules with kubernetes.core.k8s; eliminated oc CLI workarounds and ignore_errors patterns; used inline definition: blocks and template lookups"
+    },
+    {
+      "category": "recipes",
+      "source_path": "roles/deprovision-jenkins-apb/tasks/main.yml",
+      "target_path": "ansible/roles/jenkins_apb/tasks/deprovision.yml",
+      "status": "complete",
+      "description": "Deprovision tasks \u2014 rewrite all tombstoned APB modules to ansible.builtin equivalents with state: absent; replace command: oc delete workarounds; remove ignore_errors; add changed_when; fix Python-style booleans",
+      "notes": "Rewrote all tombstoned modules with kubernetes.core.k8s state:absent; eliminated oc CLI workarounds and ignore_errors; resources deleted in reverse order"
+    },
+    {
+      "category": "recipes",
+      "source_path": "playbooks/provision.yml",
+      "target_path": "ansible/roles/jenkins_apb/playbooks/provision.yml",
+      "status": "complete",
+      "description": "Provision playbook entry point \u2014 remove ansible.kubernetes-modules role dependency; fix playbook_debug: True \u2192 true; keep connection: local and gather_facts: false",
+      "notes": "Removed ansible.kubernetes-modules role dependency; updated playbook_debug True\u2192true; uses unified jenkins_apb role"
+    },
+    {
+      "category": "recipes",
+      "source_path": "playbooks/deprovision.yml",
+      "target_path": "ansible/roles/jenkins_apb/playbooks/deprovision.yml",
+      "status": "complete",
+      "description": "Deprovision playbook entry point \u2014 remove ansible.kubernetes-modules role dependency; playbook_debug: false already correct; keep connection: local and gather_facts: false",
+      "notes": "Removed ansible.kubernetes-modules role dependency; deprovision playbook now includes deprovision.yml tasks directly with state:absent"
+    },
+    {
+      "category": "files",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/bindep.txt",
+      "status": "complete",
+      "description": "System package dependencies for the Execution Environment \u2014 replaces APB Dockerfile system package installs; lists bindep-format entries for any OS-level packages needed",
+      "notes": "System package dependencies for kubernetes.core Python bindings; used by ansible-builder for EE construction"
+    },
+    {
+      "category": "files",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/execution-environment.yml",
+      "status": "complete",
+      "description": "Ansible Execution Environment definition \u2014 replaces APB Dockerfile/apb.yml container model; declares kubernetes.core, community.okd, ansible.utils collection requirements and Python dependencies (kubernetes, openshift)",
+      "notes": "EE definition using ansible-builder v3 format; replaces APB Dockerfile; references requirements.yml, requirements-python.txt, and bindep.txt"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection; validates provision/deprovision of Jenkins OpenShift resources",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 creates expected filesystem/resource state under /tmp/molecule_test/ to simulate Jenkins provisioning; exercises provision tasks including Service, Route, PVC, ServiceAccount, RoleBinding, DeploymentConfig paths",
+      "notes": "Creates /tmp/molecule_test/ directory tree with all Jenkins manifests: Service (jenkins, port 80\u21928080), JNLP Service (jenkins-jnlp, port 50000), Route (TLS edge/Redirect), ServiceAccount (with OAuth annotation), RoleBinding (modern rbac.authorization.k8s.io/v1), DeploymentConfig (apps.openshift.io/v1, ephemeral emptyDir), PVC (1Gi ReadWriteOnce), requirements.yml, defaults_main.yml, argument_specs.yml"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create stub \u2014 required by delegated driver",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /tmp/molecule_test/ paths and validates rendered template outputs; verifies Jenkins HTTP endpoint, JNLP port, Route TLS, DeploymentConfig rollout, and PVC binding expectations",
+      "notes": "Verifies all manifest files exist and have correct content: Service (ClusterIP, port 80/8080), JNLP Service (port 50000), Route (route.openshift.io/v1, edge TLS, Redirect), ServiceAccount (OAuth annotation), RoleBinding (rbac.authorization.k8s.io/v1, apiGroup, ClusterRole kind, namespace in subject), DeploymentConfig (apps.openshift.io/v1, emptyDir, triggers, env vars), PVC (ReadWriteOnce, 1Gi), requirements.yml (kubernetes.core + community.okd), defaults (YAML booleans), argument_specs (namespace required, S2I vars). Service/port/HTTP checks tagged molecule-notest."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/jenkins_apb/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy stub \u2014 required by delegated driver",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+- name: Jenkins APB - Provision
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars:
+    playbook_debug: true
+  roles:
+  - role: jenkins_apb

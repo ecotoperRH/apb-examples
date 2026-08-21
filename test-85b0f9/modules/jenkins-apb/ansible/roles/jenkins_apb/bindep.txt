@@ -1,0 +1,16 @@
+# bindep.txt — system package dependencies for the jenkins_apb Execution Environment
+#
+# These packages are required by the kubernetes.core collection's Python bindings.
+# bindep is used by ansible-builder to install OS-level packages into the EE image.
+
+# Python development headers (needed to compile some Python packages)
+python3-devel [platform:rpm]
+python3-dev [platform:dpkg]
+
+# OpenSSL development headers (needed by cryptography / pyOpenSSL)
+openssl-devel [platform:rpm]
+libssl-dev [platform:dpkg]
+
+# gcc for compiling Python C extensions
+gcc [platform:rpm]
+gcc [platform:dpkg]

@@ -1,0 +1,11 @@
+- name: Jenkins APB - Deprovision
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars:
+    playbook_debug: false
+  tasks:
+  - name: Run deprovision tasks
+    ansible.builtin.include_tasks: '{{ playbook_dir }}/../tasks/deprovision.yml'
+    vars:
+      state: absent
