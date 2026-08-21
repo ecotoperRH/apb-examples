@@ -1,0 +1,44 @@
+[
+  {
+    "name": "etherpad-apb",
+    "path": "etherpad-apb",
+    "description": "Deploys Etherpad Lite collaborative note-taking application backed by MariaDB on OpenShift, provisioning DeploymentConfigs, PersistentVolumeClaims, Services, and a Route. Exposes database credentials to other services via the ASB binding mechanism.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "hastebin-apb",
+    "path": "hastebin-apb",
+    "description": "Deploys Hastebin paste-sharing service as a two-container pod (Hastebin app + Memcached sidecar) on OpenShift with a ConfigMap generated from a Jinja2 template. No persistent storage; deprovision playbook exists but is effectively a no-op.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "jenkins-apb",
+    "path": "jenkins-apb",
+    "description": "Deploys Jenkins CI/CD server on OpenShift with optional persistence, OpenShift OAuth integration, optional S2I BuildConfig customisation, and full RBAC setup. Supports both ephemeral and persistent deployment modes with a fully implemented deprovision playbook.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "mediawiki123-apb",
+    "path": "mediawiki123-apb",
+    "description": "Deploys MediaWiki 1.23 wiki application on OpenShift with a persistent volume, using a Route-first provisioning sequence to capture the hostname for the MEDIAWIKI_SITE_SERVER environment variable. Includes a test playbook with a verify role stub.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "nginx-oss-apb",
+    "path": "nginx-oss-apb",
+    "description": "Deploys NGINX Open Source as a reverse proxy or static web server on OpenShift, with optional upstream load balancing configured via a Jinja2 template injected as a ConfigMap. Deprovision is fully implemented.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-apb",
+    "path": "pyzip-demo-apb",
+    "description": "Deploys the PyZip Python web application demo on OpenShift with a single DeploymentConfig, Service, and Route. Minimal APB with no parameters and no deprovision playbook, intended as a companion to pyzip-demo-db-apb.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-db-apb",
+    "path": "pyzip-demo-db-apb",
+    "description": "Deploys a PostGIS-enabled PostgreSQL database seeded with geospatial demo data for use with pyzip-demo-apb, using asb_encode_binding to expose credentials to the Service Broker. Deprovision is fully implemented, removing PVC, DeploymentConfig, Service, and ImageStream.",
+    "technology": "Ansible"
+  }
+]
