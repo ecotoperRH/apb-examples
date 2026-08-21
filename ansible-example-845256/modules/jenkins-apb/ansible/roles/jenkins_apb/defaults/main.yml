@@ -1,0 +1,9 @@
+---
+persistent: false
+volume_capacity: 1Gi
+memory_limit: 512Mi
+jenkins_image: ""
+jenkins_service_name: jenkins
+jnlp_service_name: jenkins-jnlp
+ingress_hostname: ""
+state: present

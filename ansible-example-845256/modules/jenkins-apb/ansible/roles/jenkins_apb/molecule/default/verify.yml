@@ -1,0 +1,347 @@
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Stat base directories
+    ansible.builtin.stat:
+      path: '{{ item }}'
+    register: dir_stat
+    loop:
+    - /tmp/molecule_test
+    - /tmp/molecule_test/templates
+    - /tmp/molecule_test/manifests
+    - /tmp/molecule_test/manifests/services
+    - /tmp/molecule_test/manifests/ingresses
+    - /tmp/molecule_test/manifests/serviceaccounts
+    - /tmp/molecule_test/manifests/rolebindings
+    - /tmp/molecule_test/manifests/deployments
+    - /tmp/molecule_test/manifests/pvc
+    - /tmp/molecule_test/collections
+  - name: Assert all base directories exist
+    ansible.builtin.assert:
+      that: item.stat.exists and item.stat.isdir
+      fail_msg: Directory {{ item.item }} does not exist
+    loop: '{{ dir_stat.results }}'
+  - name: Stat Jenkins Service manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+    register: jenkins_svc_stat
+  - name: Assert Jenkins Service manifest exists
+    ansible.builtin.assert:
+      that: jenkins_svc_stat.stat.exists
+      fail_msg: Jenkins Service manifest not found
+  - name: Slurp Jenkins Service manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+    register: jenkins_svc_content
+  - name: Assert Jenkins Service manifest content
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: v1'' in jenkins_svc_content.content | b64decode'
+      - '''kind: Service'' in jenkins_svc_content.content | b64decode'
+      - '''name: jenkins'' in jenkins_svc_content.content | b64decode'
+      - '''port: 80'' in jenkins_svc_content.content | b64decode'
+      - '''targetPort: 8080'' in jenkins_svc_content.content | b64decode'
+      fail_msg: Jenkins Service manifest has unexpected content
+  - name: Assert Jenkins Service has NO OpenShift annotations
+    ansible.builtin.assert:
+      that:
+      - '''service.openshift.io'' not in jenkins_svc_content.content | b64decode'
+      - '''service.alpha.openshift.io'' not in jenkins_svc_content.content | b64decode'
+      fail_msg: Jenkins Service manifest must not contain OpenShift-specific annotations
+  - name: Stat Jenkins JNLP Service manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+    register: jnlp_svc_stat
+  - name: Assert Jenkins JNLP Service manifest exists
+    ansible.builtin.assert:
+      that: jnlp_svc_stat.stat.exists
+      fail_msg: Jenkins JNLP Service manifest not found
+  - name: Slurp Jenkins JNLP Service manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+    register: jnlp_svc_content
+  - name: Assert Jenkins JNLP Service manifest content
+    ansible.builtin.assert:
+      that:
+      - '''kind: Service'' in jnlp_svc_content.content | b64decode'
+      - '''name: jenkins-jnlp'' in jnlp_svc_content.content | b64decode'
+      - '''port: 50000'' in jnlp_svc_content.content | b64decode'
+      fail_msg: Jenkins JNLP Service manifest has unexpected content
+  - name: Stat Jenkins Ingress manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/ingresses/jenkins-ingress.yaml
+    register: ingress_stat
+  - name: Assert Jenkins Ingress manifest exists
+    ansible.builtin.assert:
+      that: ingress_stat.stat.exists
+      fail_msg: Jenkins Ingress manifest not found
+  - name: Slurp Jenkins Ingress manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/ingresses/jenkins-ingress.yaml
+    register: ingress_content
+  - name: Assert Jenkins Ingress uses networking.k8s.io/v1
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: networking.k8s.io/v1'' in ingress_content.content | b64decode'
+      - '''kind: Ingress'' in ingress_content.content | b64decode'
+      - '''name: jenkins'' in ingress_content.content | b64decode'
+      - '''route.openshift.io'' not in ingress_content.content | b64decode'
+      fail_msg: Jenkins Ingress manifest must use networking.k8s.io/v1, not route.openshift.io/v1
+  - name: Stat Jenkins ServiceAccount manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+    register: sa_stat
+  - name: Assert Jenkins ServiceAccount manifest exists
+    ansible.builtin.assert:
+      that: sa_stat.stat.exists
+      fail_msg: Jenkins ServiceAccount manifest not found
+  - name: Slurp Jenkins ServiceAccount manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+    register: sa_content
+  - name: Assert Jenkins ServiceAccount has no OAuth annotations
+    ansible.builtin.assert:
+      that:
+      - '''kind: ServiceAccount'' in sa_content.content | b64decode'
+      - '''name: jenkins'' in sa_content.content | b64decode'
+      - '''oauth-redirectreference'' not in sa_content.content | b64decode'
+      - '''OAuthRedirectReference'' not in sa_content.content | b64decode'
+      fail_msg: Jenkins ServiceAccount must not contain OpenShift OAuth annotations
+  - name: Stat Jenkins RoleBinding manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+    register: rb_stat
+  - name: Assert Jenkins RoleBinding manifest exists
+    ansible.builtin.assert:
+      that: rb_stat.stat.exists
+      fail_msg: Jenkins RoleBinding manifest not found
+  - name: Slurp Jenkins RoleBinding manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+    register: rb_content
+  - name: Assert Jenkins RoleBinding manifest content
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: rbac.authorization.k8s.io/v1'' in rb_content.content | b64decode'
+      - '''kind: RoleBinding'' in rb_content.content | b64decode'
+      - '''name: jenkins_edit'' in rb_content.content | b64decode'
+      - '''kind: ClusterRole'' in rb_content.content | b64decode'
+      - '''name: edit'' in rb_content.content | b64decode'
+      fail_msg: Jenkins RoleBinding manifest has unexpected content
+  - name: Stat Jenkins Deployment manifest (ephemeral)
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/deployments/jenkins-deployment.yaml
+    register: deploy_stat
+  - name: Assert Jenkins Deployment manifest exists
+    ansible.builtin.assert:
+      that: deploy_stat.stat.exists
+      fail_msg: Jenkins Deployment manifest not found
+  - name: Slurp Jenkins Deployment manifest (ephemeral)
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/deployments/jenkins-deployment.yaml
+    register: deploy_content
+  - name: Assert Jenkins Deployment uses apps/v1 and has no OpenShift env vars
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: apps/v1'' in deploy_content.content | b64decode'
+      - '''kind: Deployment'' in deploy_content.content | b64decode'
+      - '''JNLP_SERVICE_NAME'' in deploy_content.content | b64decode'
+      - '''OPENSHIFT_ENABLE_OAUTH'' not in deploy_content.content | b64decode'
+      - '''OPENSHIFT_ENABLE_REDIRECT_PROMPT'' not in deploy_content.content | b64decode'
+      - '''KUBERNETES_MASTER'' not in deploy_content.content | b64decode'
+      - '''KUBERNETES_TRUST_CERTIFICATES'' not in deploy_content.content | b64decode'
+      - '''emptyDir'' in deploy_content.content | b64decode'
+      fail_msg: Jenkins Deployment manifest must use apps/v1 and must not contain OpenShift-specific env vars
+  - name: Stat Jenkins Deployment manifest (persistent)
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/deployments/jenkins-deployment-persistent.yaml
+    register: deploy_persistent_stat
+  - name: Assert Jenkins Deployment (persistent) manifest exists
+    ansible.builtin.assert:
+      that: deploy_persistent_stat.stat.exists
+      fail_msg: Jenkins Deployment (persistent) manifest not found
+  - name: Slurp Jenkins Deployment manifest (persistent)
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/deployments/jenkins-deployment-persistent.yaml
+    register: deploy_persistent_content
+  - name: Assert Jenkins Deployment (persistent) uses PVC volume
+    ansible.builtin.assert:
+      that:
+      - '''persistentVolumeClaim'' in deploy_persistent_content.content | b64decode'
+      - '''claimName: jenkins'' in deploy_persistent_content.content | b64decode'
+      fail_msg: Jenkins Deployment (persistent) must reference a PVC volume
+  - name: Stat Jenkins PVC manifest
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+    register: pvc_stat
+  - name: Assert Jenkins PVC manifest exists
+    ansible.builtin.assert:
+      that: pvc_stat.stat.exists
+      fail_msg: Jenkins PVC manifest not found
+  - name: Slurp Jenkins PVC manifest
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+    register: pvc_content
+  - name: Assert Jenkins PVC manifest content
+    ansible.builtin.assert:
+      that:
+      - '''kind: PersistentVolumeClaim'' in pvc_content.content | b64decode'
+      - '''storage: 1Gi'' in pvc_content.content | b64decode'
+      fail_msg: Jenkins PVC manifest has unexpected content
+  - name: Assert no Route manifest directory exists
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/routes
+    register: routes_dir_stat
+  - name: Assert routes directory was not created
+    ansible.builtin.assert:
+      that: not routes_dir_stat.stat.exists
+      fail_msg: OpenShift Route directory must not exist in vanilla Kubernetes role
+  - name: Assert no ImageStream manifest directory exists
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/imagestreams
+    register: imagestreams_dir_stat
+  - name: Assert imagestreams directory was not created
+    ansible.builtin.assert:
+      that: not imagestreams_dir_stat.stat.exists
+      fail_msg: OpenShift ImageStream directory must not exist in vanilla Kubernetes role
+  - name: Assert no BuildConfig manifest directory exists
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/manifests/buildconfigs
+    register: buildconfigs_dir_stat
+  - name: Assert buildconfigs directory was not created
+    ansible.builtin.assert:
+      that: not buildconfigs_dir_stat.stat.exists
+      fail_msg: OpenShift BuildConfig directory must not exist in vanilla Kubernetes role
+  - name: Stat dc.yaml.j2 template
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/templates/dc.yaml.j2
+    register: dc_j2_stat
+  - name: Assert dc.yaml.j2 exists
+    ansible.builtin.assert:
+      that: dc_j2_stat.stat.exists
+      fail_msg: dc.yaml.j2 template not found
+  - name: Slurp dc.yaml.j2 template
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/templates/dc.yaml.j2
+    register: dc_j2_content
+  - name: Assert dc.yaml.j2 uses apps/v1 Deployment and jenkins_image variable
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: apps/v1'' in dc_j2_content.content | b64decode'
+      - '''kind: Deployment'' in dc_j2_content.content | b64decode'
+      - '''jenkins_image'' in dc_j2_content.content | b64decode'
+      - '''OPENSHIFT_ENABLE_OAUTH'' not in dc_j2_content.content | b64decode'
+      - '''jenkins_image_stream_tag'' not in dc_j2_content.content | b64decode'
+      - '''DeploymentConfig'' not in dc_j2_content.content | b64decode'
+      fail_msg: dc.yaml.j2 must use apps/v1 Deployment with jenkins_image variable and no OpenShift-specific content
+  - name: Stat rolebinding.yaml.j2 template
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/templates/rolebinding.yaml.j2
+    register: rb_j2_stat
+  - name: Assert rolebinding.yaml.j2 exists
+    ansible.builtin.assert:
+      that: rb_j2_stat.stat.exists
+      fail_msg: rolebinding.yaml.j2 template not found
+  - name: Slurp rolebinding.yaml.j2 template
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/templates/rolebinding.yaml.j2
+    register: rb_j2_content
+  - name: Assert rolebinding.yaml.j2 uses rbac.authorization.k8s.io/v1
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: rbac.authorization.k8s.io/v1'' in rb_j2_content.content | b64decode'
+      - '''kind: RoleBinding'' in rb_j2_content.content | b64decode'
+      fail_msg: rolebinding.yaml.j2 must use rbac.authorization.k8s.io/v1
+  - name: Stat ingress.yaml.j2 template
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/templates/ingress.yaml.j2
+    register: ingress_j2_stat
+  - name: Assert ingress.yaml.j2 exists
+    ansible.builtin.assert:
+      that: ingress_j2_stat.stat.exists
+      fail_msg: ingress.yaml.j2 template not found
+  - name: Slurp ingress.yaml.j2 template
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/templates/ingress.yaml.j2
+    register: ingress_j2_content
+  - name: Assert ingress.yaml.j2 uses networking.k8s.io/v1
+    ansible.builtin.assert:
+      that:
+      - '''apiVersion: networking.k8s.io/v1'' in ingress_j2_content.content | b64decode'
+      - '''kind: Ingress'' in ingress_j2_content.content | b64decode'
+      - '''ingress_hostname'' in ingress_j2_content.content | b64decode'
+      fail_msg: ingress.yaml.j2 must use networking.k8s.io/v1 with ingress_hostname variable
+  - name: Stat role defaults file
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/defaults-main.yml
+    register: defaults_stat
+  - name: Assert role defaults file exists
+    ansible.builtin.assert:
+      that: defaults_stat.stat.exists
+      fail_msg: Role defaults file not found
+  - name: Slurp role defaults file
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/defaults-main.yml
+    register: defaults_content
+  - name: Assert defaults use vanilla Kubernetes variables only
+    ansible.builtin.assert:
+      that:
+      - '''persistent: false'' in defaults_content.content | b64decode'
+      - '''jenkins_image'' in defaults_content.content | b64decode'
+      - '''ingress_hostname'' in defaults_content.content | b64decode'
+      - '''enable_oauth'' not in defaults_content.content | b64decode'
+      - '''jenkins_image_stream_tag'' not in defaults_content.content | b64decode'
+      fail_msg: defaults/main.yml must not contain OpenShift-specific variables (enable_oauth, jenkins_image_stream_tag)
+  - name: Stat collections/requirements.yml
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/collections/requirements.yml
+    register: req_stat
+  - name: Assert collections/requirements.yml exists
+    ansible.builtin.assert:
+      that: req_stat.stat.exists
+      fail_msg: collections/requirements.yml not found
+  - name: Slurp collections/requirements.yml
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/collections/requirements.yml
+    register: req_content
+  - name: Assert collections/requirements.yml declares kubernetes.core
+    ansible.builtin.assert:
+      that:
+      - '''kubernetes.core'' in req_content.content | b64decode'
+      fail_msg: collections/requirements.yml must declare kubernetes.core
+  - name: Stat requirements.txt
+    ansible.builtin.stat:
+      path: /tmp/molecule_test/requirements.txt
+    register: reqtxt_stat
+  - name: Assert requirements.txt exists
+    ansible.builtin.assert:
+      that: reqtxt_stat.stat.exists
+      fail_msg: requirements.txt not found
+  - name: Slurp requirements.txt
+    ansible.builtin.slurp:
+      src: /tmp/molecule_test/requirements.txt
+    register: reqtxt_content
+  - name: Assert requirements.txt contains kubernetes and openshift packages
+    ansible.builtin.assert:
+      that:
+      - '''kubernetes'' in reqtxt_content.content | b64decode'
+      - '''openshift'' in reqtxt_content.content | b64decode'
+      fail_msg: requirements.txt must list kubernetes and openshift Python packages
+  - name: Check Jenkins service port 80
+    ansible.builtin.wait_for:
+      host: localhost
+      port: 80
+      timeout: 1
+    tags: molecule-notest
+  - name: Check Jenkins JNLP port 50000
+    ansible.builtin.wait_for:
+      host: localhost
+      port: 50000
+      timeout: 1
+    tags: molecule-notest
+  - name: Check Jenkins HTTP endpoint
+    ansible.builtin.uri:
+      url: http://localhost/
+      status_code: 200
+    tags: molecule-notest

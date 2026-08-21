@@ -1,0 +1,95 @@
+---
+- name: Create Jenkins Service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        ports:
+          - name: web
+            nodePort: 0
+            port: 80
+            protocol: TCP
+            targetPort: 8080
+        selector:
+          name: "{{ jenkins_service_name }}"
+        sessionAffinity: None
+        type: ClusterIP
+- name: Create Jenkins JNLP Service
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jnlp_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        ports:
+          - name: agent
+            nodePort: 0
+            port: 50000
+            protocol: TCP
+            targetPort: 50000
+        selector:
+          name: "{{ jenkins_service_name }}"
+        sessionAffinity: None
+        type: ClusterIP
+- name: Create Jenkins Ingress
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        rules:
+          - host: "{{ ingress_hostname }}"
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: "{{ jenkins_service_name }}"
+                      port:
+                        number: 80
+- name: Create Jenkins ServiceAccount
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+- name: Create Jenkins RoleBinding
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition: "{{ lookup('template', 'rolebinding.yaml.j2') | from_yaml }}"
+- name: Create Jenkins PersistentVolumeClaim
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ volume_capacity }}"
+  when: persistent | bool
+- name: Create Jenkins Deployment
+  kubernetes.core.k8s:
+    state: "{{ state }}"
+    definition: "{{ lookup('template', 'dc.yaml.j2') | from_yaml }}"

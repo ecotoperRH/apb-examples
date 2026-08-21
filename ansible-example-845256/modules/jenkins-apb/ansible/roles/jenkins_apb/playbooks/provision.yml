@@ -1,0 +1,9 @@
+- name: Jenkins APB playbook to provision the application
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  collections:
+  - kubernetes.core
+  roles:
+  - role: jenkins_apb
+    playbook_debug: true

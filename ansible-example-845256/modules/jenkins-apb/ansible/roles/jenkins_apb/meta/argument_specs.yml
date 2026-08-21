@@ -1,0 +1,53 @@
+---
+argument_specs:
+  main:
+    short_description: Provision Jenkins on Kubernetes
+    description:
+      - Deploys a Jenkins CI/CD server on Kubernetes with optional persistent storage.
+      - Supports both ephemeral and persistent storage modes.
+      - Exposes Jenkins via a standard Kubernetes Ingress resource.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Target Kubernetes namespace for all resources.
+      persistent:
+        type: bool
+        required: false
+        default: false
+        description: Whether to provision a PersistentVolumeClaim for Jenkins data.
+      memory_limit:
+        type: str
+        required: false
+        default: 512Mi
+        description: Kubernetes memory limit for the Jenkins container.
+      volume_capacity:
+        type: str
+        required: false
+        default: 1Gi
+        description: Storage size for the PersistentVolumeClaim (only used when persistent is true).
+      jenkins_image:
+        type: str
+        required: false
+        default: ""
+        description: Container image reference for Jenkins (e.g. jenkins/jenkins:lts).
+      jenkins_service_name:
+        type: str
+        required: false
+        default: jenkins
+        description: Name for the Jenkins Service, ServiceAccount, Ingress, and Deployment.
+      jnlp_service_name:
+        type: str
+        required: false
+        default: jenkins-jnlp
+        description: Name for the Jenkins JNLP agent Service.
+      ingress_hostname:
+        type: str
+        required: false
+        default: ""
+        description: Hostname for the Kubernetes Ingress rule that exposes Jenkins.
+      state:
+        type: str
+        required: false
+        default: present
+        description: Kubernetes resource state. Use 'present' to provision and 'absent' to deprovision.

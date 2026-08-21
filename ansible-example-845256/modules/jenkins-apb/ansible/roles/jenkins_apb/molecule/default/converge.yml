@@ -1,0 +1,150 @@
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Create base molecule test directories
+    ansible.builtin.file:
+      path: '{{ item }}'
+      state: directory
+      mode: '0755'
+    loop:
+    - /tmp/molecule_test
+    - /tmp/molecule_test/templates
+    - /tmp/molecule_test/manifests
+    - /tmp/molecule_test/manifests/services
+    - /tmp/molecule_test/manifests/ingresses
+    - /tmp/molecule_test/manifests/serviceaccounts
+    - /tmp/molecule_test/manifests/rolebindings
+    - /tmp/molecule_test/manifests/deployments
+    - /tmp/molecule_test/manifests/pvc
+    - /tmp/molecule_test/collections
+  - name: Create collections/requirements.yml
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/collections/requirements.yml
+      mode: '0644'
+      content: "---\ncollections:\n  - name: kubernetes.core\n    version: \">=2.4.0\"\n"
+  - name: Create Jenkins Service manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/services/jenkins-service.yaml
+      mode: '0644'
+      content: "---\napiVersion: v1\nkind: Service\nmetadata:\n  name: jenkins\n  namespace: test-namespace\nspec:\n  ports:\n    - name: web\n      nodePort: 0\n
+        \     port: 80\n      protocol: TCP\n      targetPort: 8080\n  selector:\n    name: jenkins\n  sessionAffinity: None\n  type: ClusterIP\n"
+  - name: Create Jenkins JNLP Service manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/services/jenkins-jnlp-service.yaml
+      mode: '0644'
+      content: "---\napiVersion: v1\nkind: Service\nmetadata:\n  name: jenkins-jnlp\n  namespace: test-namespace\nspec:\n  ports:\n    - name: agent\n      nodePort:
+        0\n      port: 50000\n      protocol: TCP\n      targetPort: 50000\n  selector:\n    name: jenkins\n  sessionAffinity: None\n  type: ClusterIP\n"
+  - name: Create Jenkins Ingress manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/ingresses/jenkins-ingress.yaml
+      mode: '0644'
+      content: "---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: jenkins\n  namespace: test-namespace\nspec:\n  rules:\n    - host: jenkins.example.com\n
+        \     http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: jenkins\n
+        \               port:\n                  number: 80\n"
+  - name: Create Jenkins ServiceAccount manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/serviceaccounts/jenkins-sa.yaml
+      mode: '0644'
+      content: "---\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: jenkins\n  namespace: test-namespace\n"
+  - name: Create Jenkins RoleBinding manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/rolebindings/jenkins-rolebinding.yaml
+      mode: '0644'
+      content: "---\napiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata:\n  name: jenkins_edit\n  namespace: test-namespace\nroleRef:\n  apiGroup:
+        rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: edit\nsubjects:\n  - kind: ServiceAccount\n    name: jenkins\n    namespace: test-namespace\n"
+  - name: Create Jenkins Deployment manifest (ephemeral)
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/deployments/jenkins-deployment.yaml
+      mode: '0644'
+      content: "---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: jenkins\n  namespace: test-namespace\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n
+        \     name: jenkins\n  strategy:\n    type: Recreate\n  template:\n    metadata:\n      labels:\n        name: jenkins\n    spec:\n      serviceAccountName:
+        jenkins\n      containers:\n        - name: jenkins\n          image: jenkins/jenkins:lts\n          imagePullPolicy: IfNotPresent\n          env:\n            -
+        name: JNLP_SERVICE_NAME\n              value: jenkins-jnlp\n          resources:\n            limits:\n              memory: 512Mi\n          securityContext:\n
+        \           privileged: false\n          volumeMounts:\n            - mountPath: /var/lib/jenkins\n              name: jenkins-data\n      volumes:\n        -
+        name: jenkins-data\n          emptyDir:\n            medium: \"\"\n"
+  - name: Create Jenkins Deployment manifest (persistent)
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/deployments/jenkins-deployment-persistent.yaml
+      mode: '0644'
+      content: "---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: jenkins\n  namespace: test-namespace\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n
+        \     name: jenkins\n  strategy:\n    type: Recreate\n  template:\n    metadata:\n      labels:\n        name: jenkins\n    spec:\n      serviceAccountName:
+        jenkins\n      containers:\n        - name: jenkins\n          image: jenkins/jenkins:lts\n          imagePullPolicy: IfNotPresent\n          env:\n            -
+        name: JNLP_SERVICE_NAME\n              value: jenkins-jnlp\n          resources:\n            limits:\n              memory: 512Mi\n          securityContext:\n
+        \           privileged: false\n          volumeMounts:\n            - mountPath: /var/lib/jenkins\n              name: jenkins-data\n      volumes:\n        -
+        name: jenkins-data\n          persistentVolumeClaim:\n            claimName: jenkins\n"
+  - name: Create Jenkins PVC manifest
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/manifests/pvc/jenkins-pvc.yaml
+      mode: '0644'
+      content: "---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: jenkins\n  namespace: test-namespace\nspec:\n  accessModes:\n    - ReadWriteOnce\n
+        \ resources:\n    requests:\n      storage: 1Gi\n"
+  - name: Create dc.yaml.j2 template file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/templates/dc.yaml.j2
+      mode: '0644'
+      content: "---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: \"{{ jenkins_service_name }}\"\n  namespace: \"{{ namespace }}\"\nspec:\n  replicas:
+        1\n  selector:\n    matchLabels:\n      name: \"{{ jenkins_service_name }}\"\n  strategy:\n    type: Recreate\n  template:\n    metadata:\n      labels:\n
+        \       name: \"{{ jenkins_service_name }}\"\n    spec:\n      serviceAccountName: \"{{ jenkins_service_name }}\"\n      containers:\n        - name: jenkins\n
+        \         image: \"{{ jenkins_image }}\"\n          env:\n            - name: JNLP_SERVICE_NAME\n              value: \"{{ jnlp_service_name }}\"\n          resources:\n
+        \           limits:\n              memory: \"{{ memory_limit }}\"\n          volumeMounts:\n            - mountPath: /var/lib/jenkins\n              name:
+        \"{{ jenkins_service_name }}-data\"\n      volumes:\n        - name: \"{{ jenkins_service_name }}-data\"\n          emptyDir:\n            medium: \"\"\n"
+  - name: Create rolebinding.yaml.j2 template file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/templates/rolebinding.yaml.j2
+      mode: '0644'
+      content: "---\napiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata:\n  name: \"{{ jenkins_service_name }}_edit\"\n  namespace: \"{{ namespace
+        }}\"\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: edit\nsubjects:\n  - kind: ServiceAccount\n    name: \"{{ jenkins_service_name
+        }}\"\n    namespace: \"{{ namespace }}\"\n"
+  - name: Create ingress.yaml.j2 template file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/templates/ingress.yaml.j2
+      mode: '0644'
+      content: "---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: \"{{ jenkins_service_name }}\"\n  namespace: \"{{ namespace }}\"\nspec:\n
+        \ rules:\n    - host: \"{{ ingress_hostname }}\"\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n
+        \               name: \"{{ jenkins_service_name }}\"\n                port:\n                  number: 80\n"
+  - name: Create role defaults file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/defaults-main.yml
+      mode: '0644'
+      content: '---
+
+        persistent: false
+
+        volume_capacity: 1Gi
+
+        memory_limit: 512Mi
+
+        jenkins_image: ""
+
+        jenkins_service_name: jenkins
+
+        jnlp_service_name: jenkins-jnlp
+
+        ingress_hostname: ""
+
+        state: present
+
+        '
+  - name: Create requirements.txt file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/requirements.txt
+      mode: '0644'
+      content: 'kubernetes>=12.0.0
+
+        openshift>=0.13.1
+
+        '
+  - name: Create execution-environment.yml file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/execution-environment.yml
+      mode: '0644'
+      content: "---\nversion: 1\nbuild_arg_defaults:\n  EE_BASE_IMAGE: 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:latest'\ndependencies:\n  galaxy:
+        collections/requirements.yml\n  python: requirements.txt\n  system: bindep.txt\n"
+  - name: Create bindep.txt file
+    ansible.builtin.copy:
+      dest: /tmp/molecule_test/bindep.txt
+      mode: '0644'
+      content: 'python3-devel [platform:rpm]
+
+        '

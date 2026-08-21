@@ -1,0 +1,11 @@
+- name: Jenkins APB playbook to deprovision the application
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  collections:
+  - kubernetes.core
+  vars:
+    state: absent
+  roles:
+  - role: jenkins_apb
+    playbook_debug: false

@@ -1,0 +1,65 @@
+---
+- name: Delete Jenkins Deployment
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+- name: Delete Jenkins PersistentVolumeClaim
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+  when: persistent | bool
+- name: Delete Jenkins RoleBinding
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: "{{ jenkins_service_name }}_edit"
+        namespace: "{{ namespace }}"
+- name: Delete Jenkins ServiceAccount
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+- name: Delete Jenkins Ingress
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"
+- name: Delete Jenkins JNLP Service
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jnlp_service_name }}"
+        namespace: "{{ namespace }}"
+- name: Delete Jenkins Service
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ jenkins_service_name }}"
+        namespace: "{{ namespace }}"

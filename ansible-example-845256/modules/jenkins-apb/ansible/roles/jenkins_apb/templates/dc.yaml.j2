@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ jenkins_service_name }}"
+  namespace: "{{ namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: "{{ jenkins_service_name }}"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        name: "{{ jenkins_service_name }}"
+    spec:
+      serviceAccountName: "{{ jenkins_service_name }}"
+      containers:
+        - name: jenkins
+          image: "{{ jenkins_image }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JNLP_SERVICE_NAME
+              value: "{{ jnlp_service_name }}"
+          resources:
+            limits:
+              memory: "{{ memory_limit }}"
+          securityContext:
+            privileged: false
+          volumeMounts:
+            - mountPath: /var/lib/jenkins
+              name: "{{ jenkins_service_name }}-data"
+      volumes:
+        - name: "{{ jenkins_service_name }}-data"
+{% if persistent | bool %}
+          persistentVolumeClaim:
+            claimName: "{{ jenkins_service_name }}"
+{% else %}
+          emptyDir:
+            medium: ""
+{% endif %}
