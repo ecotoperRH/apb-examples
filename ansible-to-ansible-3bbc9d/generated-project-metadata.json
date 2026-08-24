@@ -1,0 +1,38 @@
+[
+  {
+    "name": "etherpad-apb",
+    "path": "etherpad-apb/",
+    "description": "Provisions a collaborative real-time note-taking application (Etherpad Lite) backed by MariaDB, including two deployments, two services, a route, and two persistent volume claims.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "hastebin-apb",
+    "path": "hastebin-apb/",
+    "description": "Provisions the Hastebin pastebin web application with a Memcached sidecar container, a ConfigMap-mounted config, a service, and a route.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "mediawiki123-apb",
+    "path": "mediawiki123-apb/",
+    "description": "Provisions a MediaWiki 1.23 wiki application using a route-first pattern to inject the hostname as an environment variable, along with a persistent volume claim and a service.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "nginx-oss-apb",
+    "path": "nginx-oss-apb/",
+    "description": "Provisions an NGINX Open Source reverse proxy and load balancer with a dynamically generated configuration from a Jinja2 template mounted as a ConfigMap, a service, and a route.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-apb",
+    "path": "pyzip-demo-apb/",
+    "description": "Provisions a minimal stateless Python ZIP code lookup demo web application with a single deployment, a service, and a route.",
+    "technology": "Ansible"
+  },
+  {
+    "name": "pyzip-demo-db-apb",
+    "path": "pyzip-demo-db-apb/",
+    "description": "Provisions a PostGIS-enabled PostgreSQL database pre-seeded with geospatial data for use with the pyzip-demo application, including a persistent volume claim, a service, and bind credential exposure.",
+    "technology": "Ansible"
+  }
+]
