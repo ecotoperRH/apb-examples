@@ -1,0 +1,6 @@
+- name: Provision NGINX OSS on OpenShift/Kubernetes
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  roles:
+  - role: nginx_oss_apb

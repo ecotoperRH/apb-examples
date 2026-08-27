@@ -1,0 +1,5 @@
+collections:
+- name: kubernetes.core
+  version: '>=2.4.0'
+- name: ansible.utils
+  version: '>=2.10.0'

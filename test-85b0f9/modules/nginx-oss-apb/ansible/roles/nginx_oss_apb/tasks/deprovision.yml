@@ -1,0 +1,29 @@
+---
+- name: Delete NGINX OSS APB Route
+  kubernetes.core.k8s:
+    state: absent
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: nginx-oss-apb
+    namespace: "{{ namespace }}"
+- name: Delete NGINX OSS APB Service
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Service
+    name: nginx-oss-apb
+    namespace: "{{ namespace }}"
+- name: Delete NGINX OSS APB DeploymentConfig
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apps.openshift.io/v1
+    kind: DeploymentConfig
+    name: nginx-oss-apb
+    namespace: "{{ namespace }}"
+- name: Delete NGINX ConfigMap
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    name: nginx-conf
+    namespace: "{{ namespace }}"

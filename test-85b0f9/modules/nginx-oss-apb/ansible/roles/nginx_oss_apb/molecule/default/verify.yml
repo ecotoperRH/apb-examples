@@ -1,0 +1,280 @@
+---
+# ---------------------------------------------------------------------------
+# Play 1 — Verify rendered config files exist and have non-zero size
+# ---------------------------------------------------------------------------
+- name: Verify — config files exist
+  hosts: all
+  gather_facts: false
+  vars:
+    nginx_conf_files:
+      - /tmp/molecule_test/nginx_oss_apb/default-no-lb.conf
+      - /tmp/molecule_test/nginx_oss_apb/default-lb-leastconn.conf
+      - /tmp/molecule_test/nginx_oss_apb/default-lb-hash.conf
+      - /tmp/molecule_test/nginx_oss_apb/default-lb-iphash.conf
+      - /tmp/molecule_test/nginx_oss_apb/default-lb-roundrobin.conf
+
+  tasks:
+    - name: Stat all rendered NGINX config files
+      ansible.builtin.stat:
+        path: "{{ item_conf }}"
+      loop: "{{ nginx_conf_files }}"
+      loop_control:
+        loop_var: item_conf
+      register: nginx_conf_stat_results
+
+    - name: Assert all rendered config files exist and are non-empty
+      ansible.builtin.assert:
+        that:
+          - item_result['stat']['exists']
+          - item_result['stat']['size'] > 0
+        fail_msg: "Expected rendered NGINX config file not found or is empty"
+        success_msg: "Rendered NGINX config file exists and is non-empty"
+      loop: "{{ nginx_conf_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_result
+
+# ---------------------------------------------------------------------------
+# Play 2 — Verify Scenario A: lb disabled — static serving directives present
+# ---------------------------------------------------------------------------
+- name: Verify — Scenario A lb disabled config content
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Slurp lb-disabled config
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/nginx_oss_apb/default-no-lb.conf
+      register: no_lb_conf_raw
+
+    - name: Decode lb-disabled config content
+      ansible.builtin.set_fact:
+        no_lb_conf: "{{ no_lb_conf_raw['content'] | b64decode }}"
+
+    - name: Assert lb-disabled config has listen 8080 directive
+      ansible.builtin.assert:
+        that:
+          - "'listen 8080' in no_lb_conf"
+        fail_msg: "listen 8080 directive missing from lb-disabled config"
+
+    - name: Assert lb-disabled config has static root directive
+      ansible.builtin.assert:
+        that:
+          - "'root /usr/share/nginx/html' in no_lb_conf"
+        fail_msg: "Static root directive missing from lb-disabled config"
+
+    - name: Assert lb-disabled config has index directive
+      ansible.builtin.assert:
+        that:
+          - "'index index.html index.htm' in no_lb_conf"
+        fail_msg: "Index directive missing from lb-disabled config"
+
+    - name: Assert lb-disabled config has no upstream block
+      ansible.builtin.assert:
+        that:
+          - "'upstream upstr' not in no_lb_conf"
+        fail_msg: "Upstream block should not be present when lb is disabled"
+
+    - name: Assert lb-disabled config has no proxy_pass directive
+      ansible.builtin.assert:
+        that:
+          - "'proxy_pass' not in no_lb_conf"
+        fail_msg: "proxy_pass should not be present when lb is disabled"
+
+    - name: Assert lb-disabled config has error_page directive
+      ansible.builtin.assert:
+        that:
+          - "'error_page 500 502 503 504' in no_lb_conf"
+        fail_msg: "error_page directive missing from lb-disabled config"
+
+# ---------------------------------------------------------------------------
+# Play 3 — Verify Scenario B: lb enabled, least_conn
+# ---------------------------------------------------------------------------
+- name: Verify — Scenario B lb least_conn config content
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Slurp lb least_conn config
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/nginx_oss_apb/default-lb-leastconn.conf
+      register: lb_leastconn_conf_raw
+
+    - name: Decode lb least_conn config content
+      ansible.builtin.set_fact:
+        lb_leastconn_conf: "{{ lb_leastconn_conf_raw['content'] | b64decode }}"
+
+    - name: Assert least_conn config has upstream block
+      ansible.builtin.assert:
+        that:
+          - "'upstream upstr' in lb_leastconn_conf"
+        fail_msg: "upstream upstr block missing from least_conn config"
+
+    - name: Assert least_conn config has least_conn directive
+      ansible.builtin.assert:
+        that:
+          - "'least_conn' in lb_leastconn_conf"
+        fail_msg: "least_conn directive missing from lb config"
+
+    - name: Assert least_conn config has both upstream server entries
+      ansible.builtin.assert:
+        that:
+          - "'server 10.0.0.1:8080' in lb_leastconn_conf"
+          - "'server 10.0.0.2:8080' in lb_leastconn_conf"
+        fail_msg: "Expected upstream server entries missing from least_conn config"
+
+    - name: Assert least_conn config has proxy_pass directive
+      ansible.builtin.assert:
+        that:
+          - "'proxy_pass http://upstr' in lb_leastconn_conf"
+        fail_msg: "proxy_pass directive missing from least_conn lb config"
+
+    - name: Assert least_conn config has no static root directive
+      ansible.builtin.assert:
+        that:
+          - "'root /usr/share/nginx/html' not in lb_leastconn_conf"
+        fail_msg: "Static root directive should not be present when lb is enabled"
+
+# ---------------------------------------------------------------------------
+# Play 4 — Verify Scenario C: lb enabled, hash (includes $request_uri)
+# ---------------------------------------------------------------------------
+- name: Verify — Scenario C lb hash config content
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Slurp lb hash config
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/nginx_oss_apb/default-lb-hash.conf
+      register: lb_hash_conf_raw
+
+    - name: Decode lb hash config content
+      ansible.builtin.set_fact:
+        lb_hash_conf: "{{ lb_hash_conf_raw['content'] | b64decode }}"
+
+    - name: Assert hash config has upstream block
+      ansible.builtin.assert:
+        that:
+          - "'upstream upstr' in lb_hash_conf"
+        fail_msg: "upstream upstr block missing from hash config"
+
+    - name: Assert hash config has hash directive with request_uri
+      ansible.builtin.assert:
+        that:
+          - "'hash $request_uri' in lb_hash_conf"
+        fail_msg: "hash $request_uri directive missing from hash lb config"
+
+    - name: Assert hash config handles servers without spaces after comma
+      ansible.builtin.assert:
+        that:
+          - "'server 10.0.0.1:8080' in lb_hash_conf"
+          - "'server 10.0.0.2:8080' in lb_hash_conf"
+        fail_msg: "Server entries missing — split/trim logic may have failed for no-space comma input"
+
+    - name: Assert hash config has proxy_pass directive
+      ansible.builtin.assert:
+        that:
+          - "'proxy_pass http://upstr' in lb_hash_conf"
+        fail_msg: "proxy_pass directive missing from hash lb config"
+
+# ---------------------------------------------------------------------------
+# Play 5 — Verify Scenario D: ip_hash and Scenario E: round_robin
+# ---------------------------------------------------------------------------
+- name: Verify — Scenario D ip_hash and Scenario E round_robin config content
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Slurp lb ip_hash config
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/nginx_oss_apb/default-lb-iphash.conf
+      register: lb_iphash_conf_raw
+
+    - name: Decode lb ip_hash config content
+      ansible.builtin.set_fact:
+        lb_iphash_conf: "{{ lb_iphash_conf_raw['content'] | b64decode }}"
+
+    - name: Assert ip_hash config has upstream block
+      ansible.builtin.assert:
+        that:
+          - "'upstream upstr' in lb_iphash_conf"
+        fail_msg: "upstream upstr block missing from ip_hash config"
+
+    - name: Assert ip_hash config has ip_hash directive
+      ansible.builtin.assert:
+        that:
+          - "'ip_hash' in lb_iphash_conf"
+        fail_msg: "ip_hash directive missing from ip_hash lb config"
+
+    - name: Assert ip_hash config has proxy_pass directive
+      ansible.builtin.assert:
+        that:
+          - "'proxy_pass http://upstr' in lb_iphash_conf"
+        fail_msg: "proxy_pass directive missing from ip_hash lb config"
+
+    - name: Slurp lb round_robin config
+      ansible.builtin.slurp:
+        src: /tmp/molecule_test/nginx_oss_apb/default-lb-roundrobin.conf
+      register: lb_rr_conf_raw
+
+    - name: Decode lb round_robin config content
+      ansible.builtin.set_fact:
+        lb_rr_conf: "{{ lb_rr_conf_raw['content'] | b64decode }}"
+
+    - name: Assert round_robin config has upstream block
+      ansible.builtin.assert:
+        that:
+          - "'upstream upstr' in lb_rr_conf"
+        fail_msg: "upstream upstr block missing from round_robin config"
+
+    - name: Assert round_robin config has NO explicit lb_method directive
+      ansible.builtin.assert:
+        that:
+          - "'round_robin' not in lb_rr_conf"
+        fail_msg: "round_robin should not appear as an explicit directive in NGINX config"
+
+    - name: Assert round_robin config has all three upstream server entries
+      ansible.builtin.assert:
+        that:
+          - "'server 10.1.0.1:8080' in lb_rr_conf"
+          - "'server 10.1.0.2:8080' in lb_rr_conf"
+          - "'server 10.1.0.3:8080' in lb_rr_conf"
+        fail_msg: "One or more upstream server entries missing from round_robin config"
+
+    - name: Assert round_robin config has proxy_pass directive
+      ansible.builtin.assert:
+        that:
+          - "'proxy_pass http://upstr' in lb_rr_conf"
+        fail_msg: "proxy_pass directive missing from round_robin lb config"
+
+# ---------------------------------------------------------------------------
+# Play 6 — Kubernetes resource checks (require live cluster — molecule-notest)
+# ---------------------------------------------------------------------------
+- name: Verify — Kubernetes resource checks (skipped in molecule EE)
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Check ConfigMap nginx-conf exists in namespace
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — requires live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Check DeploymentConfig nginx-oss-apb exists in namespace
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — requires live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Check Service nginx-oss-apb exists in namespace
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — requires live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Check Route nginx-oss-apb exists in namespace
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — requires live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Check NGINX pod is Running
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — requires live OpenShift/Kubernetes cluster"
+      tags: molecule-notest

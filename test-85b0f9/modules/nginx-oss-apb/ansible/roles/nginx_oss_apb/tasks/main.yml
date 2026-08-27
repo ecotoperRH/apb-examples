@@ -1,0 +1,92 @@
+---
+- name: Create NGINX ConfigMap from rendered template
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nginx-conf
+        namespace: "{{ namespace }}"
+        labels:
+          app: "{{ namespace }}"
+          service: nginx-oss-apb
+      data:
+        nginx-conf: "{{ lookup('ansible.builtin.template', 'default.conf.j2') }}"
+- name: Create NGINX OSS APB DeploymentConfig
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps.openshift.io/v1
+      kind: DeploymentConfig
+      metadata:
+        name: nginx-oss-apb
+        namespace: "{{ namespace }}"
+        labels:
+          app: "{{ namespace }}"
+          service: nginx-oss-apb
+      spec:
+        replicas: 1
+        selector:
+          app: "{{ namespace }}"
+          service: nginx-oss-apb
+        template:
+          metadata:
+            labels:
+              app: "{{ namespace }}"
+              service: nginx-oss-apb
+          spec:
+            restartPolicy: Always
+            containers:
+            - name: nginx-oss-apb
+              image: docker.io/alessfg/openshift-nginx
+              ports:
+              - containerPort: 8080
+                protocol: TCP
+              volumeMounts:
+              - mountPath: /etc/nginx/conf.d
+                name: configuration
+            volumes:
+            - name: configuration
+              configMap:
+                name: nginx-conf
+                items:
+                - key: nginx-conf
+                  path: default.conf
+- name: Create NGINX OSS APB Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: nginx-oss-apb
+        namespace: "{{ namespace }}"
+        labels:
+          app: "{{ namespace }}"
+          service: nginx-oss-apb
+      spec:
+        selector:
+          app: "{{ namespace }}"
+        ports:
+        - name: web
+          port: 80
+          targetPort: 8080
+- name: Create NGINX OSS APB Route
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: nginx-oss-apb
+        namespace: "{{ namespace }}"
+        labels:
+          app: "{{ namespace }}"
+          service: nginx-oss-apb
+      spec:
+        port:
+          targetPort: web
+        to:
+          kind: Service
+          name: nginx-oss-apb

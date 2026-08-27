@@ -1,0 +1,4 @@
+# No system packages required.
+# The oc CLI dependency has been eliminated by replacing the legacy
+# "shell: oc create configmap" task with kubernetes.core.k8s.
+# Python packages (kubernetes, openshift, PyYAML) are declared in requirements.txt.

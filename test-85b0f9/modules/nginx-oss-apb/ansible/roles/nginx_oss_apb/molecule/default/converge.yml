@@ -1,0 +1,116 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    molecule_test_dir: /tmp/molecule_test/nginx_oss_apb
+    # Scenario A: lb disabled (default)
+    nginx_lb_disabled_dest: /tmp/molecule_test/nginx_oss_apb/default-no-lb.conf
+    # Scenario B: lb enabled with least_conn
+    nginx_lb_leastconn_dest: /tmp/molecule_test/nginx_oss_apb/default-lb-leastconn.conf
+    # Scenario C: lb enabled with hash
+    nginx_lb_hash_dest: /tmp/molecule_test/nginx_oss_apb/default-lb-hash.conf
+    # Scenario D: lb enabled with ip_hash
+    nginx_lb_iphash_dest: /tmp/molecule_test/nginx_oss_apb/default-lb-iphash.conf
+    # Scenario E: lb enabled with round_robin (explicit)
+    nginx_lb_roundrobin_dest: /tmp/molecule_test/nginx_oss_apb/default-lb-roundrobin.conf
+
+  tasks:
+    - name: Create molecule test output directory
+      ansible.builtin.file:
+        path: "{{ molecule_test_dir }}"
+        state: directory
+        mode: "0755"
+
+    # ------------------------------------------------------------------ #
+    # Scenario A — lb: false (default static serving)
+    # ------------------------------------------------------------------ #
+    - name: Render NGINX config — lb disabled
+      ansible.builtin.template:
+        src: default.conf.j2
+        dest: "{{ nginx_lb_disabled_dest }}"
+        mode: "0644"
+        backup: true
+      vars:
+        lb: false
+        server: ""
+        lb_method: round_robin
+
+    # ------------------------------------------------------------------ #
+    # Scenario B — lb: true, lb_method: least_conn
+    # ------------------------------------------------------------------ #
+    - name: Render NGINX config — lb enabled, least_conn
+      ansible.builtin.template:
+        src: default.conf.j2
+        dest: "{{ nginx_lb_leastconn_dest }}"
+        mode: "0644"
+        backup: true
+      vars:
+        lb: true
+        server: "10.0.0.1:8080, 10.0.0.2:8080"
+        lb_method: least_conn
+
+    # ------------------------------------------------------------------ #
+    # Scenario C — lb: true, lb_method: hash
+    # ------------------------------------------------------------------ #
+    - name: Render NGINX config — lb enabled, hash
+      ansible.builtin.template:
+        src: default.conf.j2
+        dest: "{{ nginx_lb_hash_dest }}"
+        mode: "0644"
+        backup: true
+      vars:
+        lb: true
+        server: "10.0.0.1:8080,10.0.0.2:8080"
+        lb_method: hash
+
+    # ------------------------------------------------------------------ #
+    # Scenario D — lb: true, lb_method: ip_hash
+    # ------------------------------------------------------------------ #
+    - name: Render NGINX config — lb enabled, ip_hash
+      ansible.builtin.template:
+        src: default.conf.j2
+        dest: "{{ nginx_lb_iphash_dest }}"
+        mode: "0644"
+        backup: true
+      vars:
+        lb: true
+        server: "192.168.1.10:8080, 192.168.1.11:8080"
+        lb_method: ip_hash
+
+    # ------------------------------------------------------------------ #
+    # Scenario E — lb: true, lb_method: round_robin (explicit)
+    # ------------------------------------------------------------------ #
+    - name: Render NGINX config — lb enabled, round_robin
+      ansible.builtin.template:
+        src: default.conf.j2
+        dest: "{{ nginx_lb_roundrobin_dest }}"
+        mode: "0644"
+        backup: true
+      vars:
+        lb: true
+        server: "10.1.0.1:8080, 10.1.0.2:8080, 10.1.0.3:8080"
+        lb_method: round_robin
+
+    # ------------------------------------------------------------------ #
+    # Kubernetes resource tasks — require a live cluster; skipped in EE
+    # ------------------------------------------------------------------ #
+    - name: Create NGINX ConfigMap (requires live cluster)
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — kubernetes.core.k8s requires a live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Create NGINX OSS APB DeploymentConfig (requires live cluster)
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — kubernetes.core.k8s requires a live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Create NGINX OSS APB Service (requires live cluster)
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — kubernetes.core.k8s requires a live OpenShift/Kubernetes cluster"
+      tags: molecule-notest
+
+    - name: Create NGINX OSS APB Route (requires live cluster)
+      ansible.builtin.debug:
+        msg: "Skipped in molecule — kubernetes.core.k8s requires a live OpenShift/Kubernetes cluster"
+      tags: molecule-notest

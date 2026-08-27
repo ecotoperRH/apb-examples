@@ -1,0 +1,42 @@
+---
+argument_specs:
+  main:
+    short_description: Provision NGINX OSS on OpenShift/Kubernetes
+    description:
+    - Deploys a single NGINX OSS instance as an OpenShift DeploymentConfig with optional upstream load balancing.
+    - Creates a ConfigMap, DeploymentConfig, Service, and Route in the target namespace.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Target OpenShift/Kubernetes namespace for all managed resources.
+      lb:
+        type: bool
+        required: false
+        default: false
+        description: Enable NGINX upstream load balancing.
+      server:
+        type: str
+        required: false
+        default: ""
+        description: Comma-separated list of upstream backend servers including port (e.g. "10.0.0.1:8080, 10.0.0.2:8080"). Required when lb is true.
+      lb_method:
+        type: str
+        required: false
+        default: round_robin
+        choices:
+        - round_robin
+        - least_conn
+        - ip_hash
+        - hash
+        description: NGINX upstream load balancing algorithm.
+  deprovision:
+    short_description: Deprovision NGINX OSS from OpenShift/Kubernetes
+    description:
+    - Removes all resources created by the main entrypoint.
+    - Deletes the Route, Service, DeploymentConfig, and ConfigMap from the target namespace.
+    options:
+      namespace:
+        type: str
+        required: true
+        description: Target OpenShift/Kubernetes namespace from which all managed resources will be deleted.

@@ -1,0 +1,4 @@
+# Python packages required by kubernetes.core collection
+kubernetes>=12.0.0
+openshift>=0.12.0
+PyYAML>=5.4.1
